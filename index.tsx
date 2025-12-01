@@ -591,7 +591,7 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
     return dots;
   };
   return (
-    <div className="relative w-full max-w-[320px] h-64 bg-slate-800 rounded-lg border border-slate-700 mx-auto mt-4 p-4 overflow-hidden shadow-inner">
+    <div className="relative w-full max-w-[220px] h-64 bg-slate-800 rounded-lg border border-slate-700 mx-auto mt-4 pl-10 pr-4 py-4 overflow-hidden shadow-inner">
       <div className="relative w-full h-full">
         {renderFrets()}{renderStrings()}{renderScaleOverlay()}{renderNotes()}
       </div>
@@ -1057,6 +1057,7 @@ export default function App() {
     </div>
   );
 }
+
 // RENDER APP
 const rootElement = document.getElementById('root');
 if (rootElement) {
