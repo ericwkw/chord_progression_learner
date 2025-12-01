@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI } from "@google/genai";
-import { Play, RotateCcw, Volume2, Sparkles, BookOpen, Music, X, ChevronRight, ChevronLeft, Eye, EyeOff, Info } from 'lucide-react';
+import { Play, RotateCcw, Volume2, Sparkles, BookOpen, Music, X, ChevronRight, ChevronLeft, Eye, EyeOff, Info, ArrowRight, Zap, Home, Map } from 'lucide-react';
 
 // --- DATA STRUCTURES ---
 
@@ -24,12 +24,15 @@ type Voicing = {
   baseFret?: number; // Visual override for where to start rendering the fretboard
 };
 
+type ChordFunction = 'Home' | 'Adventure' | 'Tension' | 'Stranger';
+
 type Chord = {
   id?: number; // Unique ID for progression items
   name: string;
   roman: string;
   quality: 'Major' | 'Minor' | 'Diminished' | 'Dominant' | 'Augmented';
   isNonDiatonic?: boolean; // If true, this is a "stranger" chord not in the key
+  function: ChordFunction; // Functional Harmony Role
   voicings: Voicing[];
   activeVoicingIdx: number; // Currently selected voicing index
   description: string;
@@ -48,7 +51,7 @@ const MUSIC_THEORY: Record<string, KeyData> = {
     scaleNotes: ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
     chords: [
       { 
-        name: 'C', roman: 'I', quality: 'Major', activeVoicingIdx: 0, description: "The 'Home' chord. Stable and happy.",
+        name: 'C', roman: 'I', quality: 'Major', function: 'Home', activeVoicingIdx: 0, description: "The 'Home' chord. Stable and happy.",
         voicings: [
           { name: 'Open', frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0], notes: ['C3', 'E3', 'G3', 'C4', 'E4'] },
           { name: 'Barre (3rd)', frets: [-1, 3, 5, 5, 5, 3], fingers: [0, 1, 2, 3, 4, 1], notes: ['C3', 'G3', 'C4', 'E4', 'G4'], baseFret: 3 },
@@ -56,49 +59,49 @@ const MUSIC_THEORY: Record<string, KeyData> = {
         ]
       },
       { 
-        name: 'Dm', roman: 'ii', quality: 'Minor', activeVoicingIdx: 0, description: "Sad, floating, jazzy.",
+        name: 'Dm', roman: 'ii', quality: 'Minor', function: 'Adventure', activeVoicingIdx: 0, description: "Sad, floating, jazzy.",
         voicings: [
           { name: 'Open', frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1], notes: ['D3', 'A3', 'D4', 'F4'] },
           { name: 'Barre (5th)', frets: [-1, 5, 7, 7, 6, 5], fingers: [0, 1, 3, 4, 2, 1], notes: ['D3', 'A3', 'D4', 'F4', 'A4'], baseFret: 5 }
         ]
       },
       { 
-        name: 'Em', roman: 'iii', quality: 'Minor', activeVoicingIdx: 0, description: "Darker, bridging chord.",
+        name: 'Em', roman: 'iii', quality: 'Minor', function: 'Home', activeVoicingIdx: 0, description: "Darker, bridging chord.",
         voicings: [
           { name: 'Open', frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0], notes: ['E2', 'B2', 'E3', 'G3', 'B3', 'E4'] },
           { name: 'Barre (7th)', frets: [-1, 7, 9, 9, 8, 7], fingers: [0, 1, 3, 4, 2, 1], notes: ['E3', 'B3', 'E4', 'G4', 'B4'], baseFret: 7 }
         ]
       },
       { 
-        name: 'F', roman: 'IV', quality: 'Major', activeVoicingIdx: 0, description: "Adventure time! Lifting up.",
+        name: 'F', roman: 'IV', quality: 'Major', function: 'Adventure', activeVoicingIdx: 0, description: "Adventure time! Lifting up.",
         voicings: [
           { name: 'Barre (1st)', frets: [1, 3, 3, 2, 1, 1], fingers: [1, 3, 4, 2, 1, 1], notes: ['F2', 'C3', 'F3', 'A3', 'C4', 'F4'] },
           { name: 'Triad (High)', frets: [-1, -1, 3, 2, 1, 1], fingers: [0, 0, 3, 2, 1, 1], notes: ['F3', 'A3', 'C4', 'F4'] }
         ]
       },
       { 
-        name: 'G', roman: 'V', quality: 'Major', activeVoicingIdx: 0, description: "Tension. Wants to go to C.",
+        name: 'G', roman: 'V', quality: 'Major', function: 'Tension', activeVoicingIdx: 0, description: "Tension. Wants to go to C.",
         voicings: [
           { name: 'Open', frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], notes: ['G2', 'B2', 'D3', 'G3', 'B3', 'G4'] },
           { name: 'Barre (3rd)', frets: [3, 5, 5, 4, 3, 3], fingers: [1, 3, 4, 2, 1, 1], notes: ['G2', 'D3', 'G3', 'B3', 'D4', 'G4'], baseFret: 3 }
         ]
       },
       { 
-        name: 'Am', roman: 'vi', quality: 'Minor', activeVoicingIdx: 0, description: "Sad relative of C Major.",
+        name: 'Am', roman: 'vi', quality: 'Minor', function: 'Home', activeVoicingIdx: 0, description: "Sad relative of C Major.",
         voicings: [
           { name: 'Open', frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0], notes: ['A2', 'E3', 'A3', 'C4', 'E4'] },
           { name: 'Barre (5th)', frets: [5, 7, 7, 5, 5, 5], fingers: [1, 3, 4, 1, 1, 1], notes: ['A2', 'E3', 'A3', 'C4', 'E4', 'A4'], baseFret: 5 }
         ]
       },
       { 
-        name: 'Bdim', roman: 'vii°', quality: 'Diminished', activeVoicingIdx: 0, description: "Spooky and very tense.",
+        name: 'Bdim', roman: 'vii°', quality: 'Diminished', function: 'Tension', activeVoicingIdx: 0, description: "Spooky and very tense.",
         voicings: [
           { name: 'Open-ish', frets: [-1, 2, 3, 4, -1, -1], fingers: [0, 1, 2, 4, 0, 0], notes: ['B2', 'F3', 'B3'] }
         ]
       },
       // Non-diatonic / Borrowed Chord
       { 
-        name: 'E', roman: 'III', quality: 'Major', isNonDiatonic: true, activeVoicingIdx: 0, description: "THE STRANGER! Uses a G# note (not in C Major scale).",
+        name: 'E', roman: 'III', quality: 'Major', isNonDiatonic: true, function: 'Stranger', activeVoicingIdx: 0, description: "THE STRANGER! Uses a G# note (not in C Major scale).",
         voicings: [
           { name: 'Open', frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0], notes: ['E2', 'B2', 'E3', 'G#3', 'B3', 'E4'] }
         ]
@@ -110,49 +113,49 @@ const MUSIC_THEORY: Record<string, KeyData> = {
     scaleNotes: ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
     chords: [
       { 
-        name: 'G', roman: 'I', quality: 'Major', activeVoicingIdx: 0, description: "Home base for G Major.",
+        name: 'G', roman: 'I', quality: 'Major', function: 'Home', activeVoicingIdx: 0, description: "Home base for G Major.",
         voicings: [
           { name: 'Open', frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], notes: ['G2', 'B2', 'D3', 'G3', 'B3', 'G4'] },
           { name: 'Barre (3rd)', frets: [3, 5, 5, 4, 3, 3], fingers: [1, 3, 4, 2, 1, 1], notes: ['G2', 'D3', 'G3', 'B3', 'D4', 'G4'], baseFret: 3 }
         ]
       },
       { 
-        name: 'Am', roman: 'ii', quality: 'Minor', activeVoicingIdx: 0, description: "Soft sadness.",
+        name: 'Am', roman: 'ii', quality: 'Minor', function: 'Adventure', activeVoicingIdx: 0, description: "Soft sadness.",
         voicings: [
           { name: 'Open', frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0], notes: ['A2', 'E3', 'A3', 'C4', 'E4'] },
           { name: 'Barre (5th)', frets: [5, 7, 7, 5, 5, 5], fingers: [1, 3, 4, 1, 1, 1], notes: ['A2', 'E3', 'A3', 'C4', 'E4', 'A4'], baseFret: 5 }
         ]
       },
       { 
-        name: 'Bm', roman: 'iii', quality: 'Minor', activeVoicingIdx: 0, description: "Thoughtful minor chord.",
+        name: 'Bm', roman: 'iii', quality: 'Minor', function: 'Home', activeVoicingIdx: 0, description: "Thoughtful minor chord.",
         voicings: [
           { name: 'Barre (2nd)', frets: [-1, 2, 4, 4, 3, 2], fingers: [0, 1, 3, 4, 2, 1], notes: ['B2', 'F#3', 'B3', 'D4', 'F#4'] },
           { name: 'Barre (7th)', frets: [7, 9, 9, 7, 7, 7], fingers: [1, 3, 4, 1, 1, 1], notes: ['B2', 'F#3', 'B3', 'D4', 'F#4', 'B4'], baseFret: 7 }
         ]
       },
       { 
-        name: 'C', roman: 'IV', quality: 'Major', activeVoicingIdx: 0, description: "Bright and lifting.",
+        name: 'C', roman: 'IV', quality: 'Major', function: 'Adventure', activeVoicingIdx: 0, description: "Bright and lifting.",
         voicings: [
           { name: 'Open', frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0], notes: ['C3', 'E3', 'G3', 'C4', 'E4'] },
           { name: 'Barre (3rd)', frets: [-1, 3, 5, 5, 5, 3], fingers: [0, 1, 2, 3, 4, 1], notes: ['C3', 'G3', 'C4', 'E4', 'G4'], baseFret: 3 }
         ]
       },
       { 
-        name: 'D', roman: 'V', quality: 'Major', activeVoicingIdx: 0, description: "High energy, points to G.",
+        name: 'D', roman: 'V', quality: 'Major', function: 'Tension', activeVoicingIdx: 0, description: "High energy, points to G.",
         voicings: [
           { name: 'Open', frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2], notes: ['D3', 'A3', 'D4', 'F#4'] },
           { name: 'Barre (5th)', frets: [-1, 5, 7, 7, 7, 5], fingers: [0, 1, 2, 3, 4, 1], notes: ['D3', 'A3', 'D4', 'F#4', 'A4'], baseFret: 5 }
         ]
       },
       { 
-        name: 'Em', roman: 'vi', quality: 'Minor', activeVoicingIdx: 0, description: "Deep and resonant.",
+        name: 'Em', roman: 'vi', quality: 'Minor', function: 'Home', activeVoicingIdx: 0, description: "Deep and resonant.",
         voicings: [
           { name: 'Open', frets: [0, 2, 2, 0, 0, 0], fingers: [0, 2, 3, 0, 0, 0], notes: ['E2', 'B2', 'E3', 'G3', 'B3', 'E4'] },
           { name: 'Barre (7th)', frets: [-1, 7, 9, 9, 8, 7], fingers: [0, 1, 3, 4, 2, 1], notes: ['E3', 'B3', 'E4', 'G4', 'B4'], baseFret: 7 }
         ]
       },
       { 
-        name: 'F', roman: 'bVII', quality: 'Major', isNonDiatonic: true, activeVoicingIdx: 0, description: "THE STRANGER! Uses F natural (G Major needs F#). Rock & Roll sound.",
+        name: 'F', roman: 'bVII', quality: 'Major', isNonDiatonic: true, function: 'Stranger', activeVoicingIdx: 0, description: "THE STRANGER! Uses F natural (G Major needs F#). Rock & Roll sound.",
         voicings: [
           { name: 'Barre (1st)', frets: [1, 3, 3, 2, 1, 1], fingers: [1, 3, 4, 2, 1, 1], notes: ['F2', 'C3', 'F3', 'A3', 'C4', 'F4'] }
         ]
@@ -163,14 +166,58 @@ const MUSIC_THEORY: Record<string, KeyData> = {
     name: 'E Major',
     scaleNotes: ['E', 'F#', 'G#', 'A', 'B', 'C#', 'D#'],
     chords: [
-      { name: 'E', roman: 'I', quality: 'Major', activeVoicingIdx: 0, description: "Bright, open, powerful.", voicings: [{ name: 'Open', frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0], notes: ['E2', 'B2', 'E3', 'G#3', 'B3', 'E4'] }] },
-      { name: 'F#m', roman: 'ii', quality: 'Minor', activeVoicingIdx: 0, description: "Melancholic and sharp.", voicings: [{ name: 'Barre (2nd)', frets: [2, 4, 4, 2, 2, 2], fingers: [1, 3, 4, 1, 1, 1], notes: ['F#2', 'C#3', 'F#3', 'A3', 'C#4', 'F#4'] }] },
-      { name: 'G#m', roman: 'iii', quality: 'Minor', activeVoicingIdx: 0, description: "Distant and mysterious.", voicings: [{ name: 'Barre (4th)', frets: [4, 6, 6, 4, 4, 4], fingers: [1, 3, 4, 1, 1, 1], notes: ['G#2', 'D#3', 'G#3', 'B3', 'D#4', 'G#4'], baseFret: 4 }] },
-      { name: 'A', roman: 'IV', quality: 'Major', activeVoicingIdx: 0, description: "Lifting and hopeful.", voicings: [{ name: 'Open', frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0], notes: ['A2', 'E3', 'A3', 'C#4', 'E4'] }, { name: 'Barre (5th)', frets: [5, 7, 7, 6, 5, 5], fingers: [1, 3, 4, 2, 1, 1], notes: ['A2', 'E3', 'A3', 'C#4', 'E4', 'A4'], baseFret: 5 }] },
-      { name: 'B', roman: 'V', quality: 'Major', activeVoicingIdx: 0, description: "Strong tension.", voicings: [{ name: 'Barre (2nd)', frets: [-1, 2, 4, 4, 4, 2], fingers: [0, 1, 2, 3, 4, 1], notes: ['B2', 'F#3', 'B3', 'D#4', 'F#4'] }, { name: 'Barre (7th)', frets: [7, 9, 9, 8, 7, 7], fingers: [1, 3, 4, 2, 1, 1], notes: ['B2', 'F#3', 'B3', 'D#4', 'F#4', 'B4'], baseFret: 7 }] },
-      { name: 'C#m', roman: 'vi', quality: 'Minor', activeVoicingIdx: 0, description: "Emotional center.", voicings: [{ name: 'Barre (4th)', frets: [-1, 4, 6, 6, 5, 4], fingers: [0, 1, 3, 4, 2, 1], notes: ['C#3', 'G#3', 'C#4', 'E4', 'G#4'], baseFret: 4 }] },
-      { name: 'G', roman: 'bIII', quality: 'Major', isNonDiatonic: true, activeVoicingIdx: 0, description: "THE STRANGER! Uses G Natural (Key has G#). Sounds bluesy.", voicings: [{ name: 'Open', frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], notes: ['G2', 'B2', 'D3', 'G3', 'B3', 'G4'] }] },
+      { name: 'E', roman: 'I', quality: 'Major', function: 'Home', activeVoicingIdx: 0, description: "Bright, open, powerful.", voicings: [{ name: 'Open', frets: [0, 2, 2, 1, 0, 0], fingers: [0, 2, 3, 1, 0, 0], notes: ['E2', 'B2', 'E3', 'G#3', 'B3', 'E4'] }] },
+      { name: 'F#m', roman: 'ii', quality: 'Minor', function: 'Adventure', activeVoicingIdx: 0, description: "Melancholic and sharp.", voicings: [{ name: 'Barre (2nd)', frets: [2, 4, 4, 2, 2, 2], fingers: [1, 3, 4, 1, 1, 1], notes: ['F#2', 'C#3', 'F#3', 'A3', 'C#4', 'F#4'] }] },
+      { name: 'G#m', roman: 'iii', quality: 'Minor', function: 'Home', activeVoicingIdx: 0, description: "Distant and mysterious.", voicings: [{ name: 'Barre (4th)', frets: [4, 6, 6, 4, 4, 4], fingers: [1, 3, 4, 1, 1, 1], notes: ['G#2', 'D#3', 'G#3', 'B3', 'D#4', 'G#4'], baseFret: 4 }] },
+      { name: 'A', roman: 'IV', quality: 'Major', function: 'Adventure', activeVoicingIdx: 0, description: "Lifting and hopeful.", voicings: [{ name: 'Open', frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0], notes: ['A2', 'E3', 'A3', 'C#4', 'E4'] }, { name: 'Barre (5th)', frets: [5, 7, 7, 6, 5, 5], fingers: [1, 3, 4, 2, 1, 1], notes: ['A2', 'E3', 'A3', 'C#4', 'E4', 'A4'], baseFret: 5 }] },
+      { name: 'B', roman: 'V', quality: 'Major', function: 'Tension', activeVoicingIdx: 0, description: "Strong tension.", voicings: [{ name: 'Barre (2nd)', frets: [-1, 2, 4, 4, 4, 2], fingers: [0, 1, 2, 3, 4, 1], notes: ['B2', 'F#3', 'B3', 'D#4', 'F#4'] }, { name: 'Barre (7th)', frets: [7, 9, 9, 8, 7, 7], fingers: [1, 3, 4, 2, 1, 1], notes: ['B2', 'F#3', 'B3', 'D#4', 'F#4', 'B4'], baseFret: 7 }] },
+      { name: 'C#m', roman: 'vi', quality: 'Minor', function: 'Home', activeVoicingIdx: 0, description: "Emotional center.", voicings: [{ name: 'Barre (4th)', frets: [-1, 4, 6, 6, 5, 4], fingers: [0, 1, 3, 4, 2, 1], notes: ['C#3', 'G#3', 'C#4', 'E4', 'G#4'], baseFret: 4 }] },
+      { name: 'G', roman: 'bIII', quality: 'Major', isNonDiatonic: true, function: 'Stranger', activeVoicingIdx: 0, description: "THE STRANGER! Uses G Natural (Key has G#). Sounds bluesy.", voicings: [{ name: 'Open', frets: [3, 2, 0, 0, 0, 3], fingers: [2, 1, 0, 0, 0, 3], notes: ['G2', 'B2', 'D3', 'G3', 'B3', 'G4'] }] },
     ]
+  }
+};
+
+// --- HELPERS FOR TRANSITION LOGIC ---
+
+const getTransitionInfo = (prev: Chord, next: Chord) => {
+  if (!prev || !next) return null;
+  
+  const p = prev.roman;
+  const n = next.roman;
+
+  // Cadences and common movements
+  if ((p === 'V' || p === 'V7') && (n === 'I')) return { label: "Perfect Resolution", type: "resolution", icon: <Home size={12} /> };
+  if ((p === 'IV') && (n === 'I')) return { label: "Plagal (Amen)", type: "soft-resolution", icon: <Home size={12} /> };
+  if ((p === 'V') && (n === 'vi')) return { label: "Surprise!", type: "deceptive", icon: <Zap size={12} /> };
+  if ((p === 'I') && (n === 'V')) return { label: "Building Tension", type: "tension", icon: <ArrowRight size={12} /> };
+  if ((p === 'I') && (n === 'IV')) return { label: "Departure", type: "adventure", icon: <Map size={12} /> };
+  if ((p === 'ii') && (n === 'V')) return { label: "Jazz Turn", type: "movement", icon: <ArrowRight size={12} /> };
+  if (prev.isNonDiatonic || next.isNonDiatonic) return { label: "Exotic", type: "exotic", icon: <Sparkles size={12} /> };
+
+  // Default fallback based on function
+  if (prev.function === 'Tension' && next.function === 'Home') return { label: "Release", type: "resolution" };
+  if (prev.function === 'Home' && next.function === 'Adventure') return { label: "Exploring", type: "adventure" };
+  
+  return null;
+};
+
+const getFunctionColor = (func: ChordFunction) => {
+  switch (func) {
+    case 'Home': return 'border-cyan-500 shadow-cyan-500/20 bg-cyan-900/20';
+    case 'Adventure': return 'border-amber-500 shadow-amber-500/20 bg-amber-900/20';
+    case 'Tension': return 'border-rose-500 shadow-rose-500/20 bg-rose-900/20';
+    case 'Stranger': return 'border-purple-500 shadow-purple-500/20 bg-purple-900/20';
+    default: return 'border-slate-500';
+  }
+};
+
+const getFunctionBadgeColor = (func: ChordFunction) => {
+  switch (func) {
+    case 'Home': return 'bg-cyan-500 text-slate-900';
+    case 'Adventure': return 'bg-amber-500 text-slate-900';
+    case 'Tension': return 'bg-rose-500 text-white';
+    case 'Stranger': return 'bg-purple-500 text-white';
+    default: return 'bg-slate-500';
   }
 };
 
@@ -411,33 +458,36 @@ const Fretboard = ({ chord, scaleNotes, showScale }: { chord: Chord | null, scal
   );
 };
 
-// 2. Chord Tile Component
-const ChordTile: React.FC<{ chord: Chord, onClick: () => void, isSelected?: boolean }> = ({ chord, onClick, isSelected }) => {
+// 2. Chord Tile Component (Draggable source or simple button)
+const ChordTile: React.FC<{ chord: Chord, onClick: () => void, isSelected?: boolean, inPalette?: boolean }> = ({ chord, onClick, isSelected, inPalette }) => {
+  const functionColor = inPalette ? getFunctionColor(chord.function) : '';
+  const badgeColor = getFunctionBadgeColor(chord.function);
+
   return (
     <button 
       onClick={onClick}
       className={`
         relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-200 transform hover:-translate-y-1
         ${isSelected 
-          ? 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/30 scale-105 border-2 border-white' 
-          : chord.isNonDiatonic 
-            ? 'bg-slate-800 border-2 border-dashed border-orange-500/50 hover:border-orange-400 hover:bg-slate-750'
-            : 'bg-slate-800 border border-slate-700 hover:border-slate-500 hover:bg-slate-750'}
+          ? 'ring-2 ring-white scale-105' 
+          : 'hover:opacity-90'}
+        ${inPalette ? `${functionColor} border` : 'bg-slate-700 border border-slate-600'}
+        ${isSelected && inPalette ? 'bg-opacity-40' : 'bg-opacity-20'}
       `}
     >
-      <span className={`text-xs font-mono mb-1 ${chord.isNonDiatonic ? 'text-orange-400' : 'text-slate-400'}`}>{chord.roman}</span>
-      <span className="text-2xl font-bold text-white font-display">{chord.name}</span>
-      <span className="text-[10px] text-slate-500 uppercase mt-1">{chord.quality}</span>
-      {chord.isNonDiatonic && (
-        <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold shadow-sm">
-          ?
-        </span>
-      )}
+      <div className="flex justify-between w-full mb-1">
+         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeColor} opacity-80`}>
+           {chord.function === 'Stranger' ? '?' : chord.roman}
+         </span>
+      </div>
+      
+      <span className="text-2xl font-bold text-white font-display mb-1">{chord.name}</span>
+      <span className="text-[10px] text-slate-400 uppercase">{chord.quality}</span>
     </button>
   );
 };
 
-// 3. Theory Spectrum Component (NEW)
+// 3. Theory Spectrum Component
 const TheorySpectrum = ({ chord, scaleNotes, keyName }: { chord: Chord | null, scaleNotes: string[], keyName: string }) => {
   if (!chord) return (
     <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 flex flex-col items-center justify-center h-full min-h-[120px]">
@@ -451,7 +501,6 @@ const TheorySpectrum = ({ chord, scaleNotes, keyName }: { chord: Chord | null, s
   );
 
   const voicing = chord.voicings[chord.activeVoicingIdx];
-  // Extract unique note names from current voicing (remove octave numbers)
   const chordNotes = Array.from(new Set(voicing.notes.map(n => getRawNote(n))));
 
   return (
@@ -460,14 +509,12 @@ const TheorySpectrum = ({ chord, scaleNotes, keyName }: { chord: Chord | null, s
          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
            <Info size={14} /> Why this chord?
          </h3>
-         <span className={`text-xs px-2 py-1 rounded-md font-bold ${chord.isNonDiatonic ? 'bg-orange-500/20 text-orange-400' : 'bg-green-500/20 text-green-400'}`}>
-           {chord.isNonDiatonic ? 'Strange Ingredient!' : 'Perfect Match'}
+         <span className={`text-xs px-2 py-1 rounded-md font-bold ${getFunctionBadgeColor(chord.function)}`}>
+           {chord.function}
          </span>
       </div>
 
-      {/* The Spectrum Visualization */}
       <div className="flex-1 flex flex-col justify-center gap-4">
-        {/* Row 1: The Key Scale (The Available Ingredients) */}
         <div className="flex justify-between items-center relative">
            <div className="absolute left-0 -top-6 text-[10px] text-slate-500">Key of {keyName} (Safe Notes)</div>
            {scaleNotes.map((note, idx) => (
@@ -480,15 +527,12 @@ const TheorySpectrum = ({ chord, scaleNotes, keyName }: { chord: Chord | null, s
                `}>
                  {note}
                </div>
-               {/* Label scale degree (1, 2, 3...) */}
                <span className="text-[9px] text-slate-600">{idx + 1}</span>
              </div>
            ))}
-           {/* Connecting Line */}
            <div className="absolute top-4 left-0 w-full h-0.5 bg-slate-700 -z-0"></div>
         </div>
 
-        {/* Row 2: The Chord's Notes (What we are using) */}
         <div className="flex flex-wrap gap-2 justify-center mt-2 p-3 bg-slate-900/50 rounded-lg">
            <span className="text-xs text-slate-500 mr-2 self-center">Chord {chord.name}:</span>
            {chordNotes.map(note => {
@@ -507,7 +551,6 @@ const TheorySpectrum = ({ chord, scaleNotes, keyName }: { chord: Chord | null, s
            })}
         </div>
         
-        {/* Simple Explanation */}
         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
            {chord.isNonDiatonic 
              ? `Wait! This chord uses ${chordNotes.find(n => !scaleNotes.includes(n))}, which is NOT in the ${keyName} scale. That's why it sounds surprising!`
@@ -534,8 +577,7 @@ const TutorPanel = ({ progression }: { progression: Chord[] }) => {
       setLoading(true);
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        // Include voicing info in the prompt so the AI knows if we are playing high or low
-        const chordDetails = progression.map(c => `${c.name} (${c.voicings[c.activeVoicingIdx].name})`).join(' - ');
+        const chordDetails = progression.map(c => `${c.name} (${c.function})`).join(' -> ');
         
         const prompt = `
           You are a friendly guitar teacher for a 5th grader. 
@@ -570,7 +612,7 @@ const TutorPanel = ({ progression }: { progression: Chord[] }) => {
     <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-5 h-full flex flex-col">
       <div className="flex items-center gap-2 mb-3 text-indigo-400">
         <Sparkles size={18} />
-        <h3 className="font-bold text-sm uppercase tracking-wider">Theory Tutor</h3>
+        <h3 className="font-bold text-sm uppercase tracking-wider">AI Theory Tutor</h3>
       </div>
       
       <div className="flex-1 overflow-y-auto">
@@ -598,7 +640,6 @@ const App = () => {
   const [currentKey, setCurrentKey] = useState<string>('C Major');
   const [progression, setProgression] = useState<Chord[]>([]);
   
-  // selectedChord can be a reference to a progression item OR a fresh copy from palette
   const [selectedChord, setSelectedChord] = useState<Chord | null>(null);
   
   const [isPlaying, setIsPlaying] = useState(false);
@@ -606,14 +647,12 @@ const App = () => {
   
   // Handlers
   const handleChordClick = (chord: Chord) => {
-    // When clicking, we play the specific voicing currently active on that chord object
     const voicing = chord.voicings[chord.activeVoicingIdx];
     AudioEngine.strum(voicing.notes);
     setSelectedChord(chord);
   };
 
   const addToProgression = (chord: Chord) => {
-    // Create a new instance with a unique ID
     const newChord = { ...chord, id: Date.now() };
     setProgression([...progression, newChord]);
     handleChordClick(newChord);
@@ -621,7 +660,6 @@ const App = () => {
 
   const removeFromProgression = (index: number) => {
     const newProg = [...progression];
-    // If the removed chord was selected, deselect it
     if (selectedChord && selectedChord.id === newProg[index].id) {
       setSelectedChord(null);
     }
@@ -635,15 +673,12 @@ const App = () => {
     const count = selectedChord.voicings.length;
     const newIdx = (selectedChord.activeVoicingIdx + direction + count) % count;
     
-    // Update the selected chord object locally
     const updatedChord = { ...selectedChord, activeVoicingIdx: newIdx };
     setSelectedChord(updatedChord);
     
-    // Play the new voicing
     const voicing = updatedChord.voicings[newIdx];
     AudioEngine.strum(voicing.notes);
 
-    // If this chord is part of the progression, update the progression state
     if (selectedChord.id) {
       setProgression(prev => prev.map(c => c.id === selectedChord.id ? updatedChord : c));
     }
@@ -654,7 +689,7 @@ const App = () => {
     setIsPlaying(true);
     
     for (const chord of progression) {
-      setSelectedChord(chord); // Highlight visual
+      setSelectedChord(chord); 
       const voicing = chord.voicings[chord.activeVoicingIdx];
       AudioEngine.strum(voicing.notes);
       await new Promise(r => setTimeout(r, 1000));
@@ -710,7 +745,7 @@ const App = () => {
         <div className="lg:col-span-7 flex flex-col gap-6">
           
           {/* 1. PROGRESSION BUILDER (The Timeline) */}
-          <div className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700 min-h-[180px] flex flex-col justify-between">
+          <div className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700 min-h-[220px] flex flex-col justify-between">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <ChevronRight size={16} /> Your Song
@@ -738,43 +773,70 @@ const App = () => {
             </div>
 
             {/* Timeline Slots */}
-            <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x">
+            <div className="flex gap-1 overflow-x-auto pb-6 scrollbar-hide snap-x items-center">
               {progression.length === 0 && (
-                <div className="w-full h-24 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-600">
+                <div className="w-full h-32 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-600">
                   <span className="text-sm">Click chords below to add them here</span>
                 </div>
               )}
               
-              {progression.map((chord, idx) => (
-                <div key={chord.id || idx} className="relative group flex-shrink-0 snap-center">
-                  <div 
-                    onClick={() => handleChordClick(chord)}
-                    className={`
-                      w-24 h-24 bg-slate-700 rounded-xl flex flex-col items-center justify-center border-2 cursor-pointer transition-colors
-                      ${selectedChord && selectedChord.id === chord.id ? 'border-blue-400 bg-slate-600' : 'border-transparent hover:border-slate-500'}
-                      ${chord.isNonDiatonic ? 'border-orange-500/50' : ''}
-                    `}
-                  >
-                    <span className="text-xl font-bold font-display">{chord.name}</span>
-                    <span className="text-[10px] text-slate-400">{chord.voicings[chord.activeVoicingIdx].name}</span>
-                  </div>
-                  {/* Remove Button */}
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); removeFromProgression(idx); }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                  >
-                    <X size={12} />
-                  </button>
-                  {/* Connector Line */}
-                  {idx < progression.length - 1 && (
-                     <div className="absolute top-1/2 -right-5 w-4 h-0.5 bg-slate-700 -z-10"></div>
-                  )}
-                </div>
-              ))}
+              {progression.map((chord, idx) => {
+                 const transition = (idx > 0) ? getTransitionInfo(progression[idx-1], chord) : null;
+                 
+                 return (
+                  <React.Fragment key={chord.id || idx}>
+                    
+                    {/* Transition Badge (Between chords) */}
+                    {transition && (
+                      <div className="flex flex-col items-center justify-center w-16 px-1 z-10 -ml-2 -mr-2 flex-shrink-0 animate-in fade-in zoom-in duration-300">
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-slate-800 border shadow-sm ${
+                           transition.type === 'resolution' ? 'border-cyan-500 text-cyan-500' :
+                           transition.type === 'tension' ? 'border-rose-500 text-rose-500' :
+                           transition.type === 'adventure' ? 'border-amber-500 text-amber-500' :
+                           'border-slate-500 text-slate-400'
+                         }`}>
+                           {transition.icon || <ArrowRight size={12}/>}
+                         </div>
+                         <span className="text-[9px] text-slate-400 font-bold mt-1 text-center leading-tight w-full truncate">
+                           {transition.label}
+                         </span>
+                      </div>
+                    )}
+
+                    {/* Chord Card */}
+                    <div className="relative group flex-shrink-0 snap-center">
+                      <div 
+                        onClick={() => handleChordClick(chord)}
+                        className={`
+                          w-28 h-32 bg-slate-800 rounded-xl flex flex-col items-center justify-center border-2 cursor-pointer transition-all hover:-translate-y-1
+                          ${selectedChord && selectedChord.id === chord.id ? 'border-white shadow-xl shadow-white/10 scale-105 z-10' : getFunctionColor(chord.function)}
+                        `}
+                      >
+                        {/* Function Badge */}
+                        <div className={`absolute top-2 left-2 text-[9px] font-bold px-1.5 py-0.5 rounded ${getFunctionBadgeColor(chord.function)}`}>
+                          {chord.function}
+                        </div>
+
+                        <span className="text-3xl font-bold font-display mt-2">{chord.name}</span>
+                        <span className="text-xs text-slate-400 mt-1">{chord.voicings[chord.activeVoicingIdx].name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono mt-2">{chord.roman}</span>
+                      </div>
+                      
+                      {/* Remove Button */}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); removeFromProgression(idx); }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-20"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </React.Fragment>
+                 )
+              })}
             </div>
           </div>
 
-           {/* 2. SCALE VISUALIZER (NEW) */}
+           {/* 2. SCALE VISUALIZER */}
            <div className="min-h-[160px]">
              <TheorySpectrum 
                 chord={selectedChord} 
@@ -785,18 +847,27 @@ const App = () => {
 
           {/* 3. CHORD PALETTE */}
           <div className="space-y-3">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider pl-1">Available Chords ({currentKey})</h2>
+            <div className="flex justify-between items-end">
+              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider pl-1">Available Chords ({currentKey})</h2>
+              {/* Legend */}
+              <div className="flex gap-2 text-[10px]">
+                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-500"></div>Home</div>
+                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div>Adventure</div>
+                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-500"></div>Tension</div>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
               {currentKeyData.chords.map((chord) => (
                 <ChordTile 
                   key={chord.name} 
                   chord={chord} 
+                  inPalette={true}
                   onClick={() => addToProgression(chord)}
-                  isSelected={selectedChord?.name === chord.name && !selectedChord?.id} // Only highlight if palette selection (no ID)
+                  isSelected={selectedChord?.name === chord.name && !selectedChord?.id} 
                 />
               ))}
             </div>
-            <p className="text-xs text-slate-500 italic mt-2 text-center">* Orange chords are "borrowed" from outside the key!</p>
           </div>
         </div>
 
