@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Play, Volume2, ArrowRight, X, Music, Info, Sparkles, Settings, RefreshCw, ChevronRight, ChevronLeft, HelpCircle, BookOpen } from 'lucide-react';
@@ -5,7 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 
 // --- AUDIO ENGINE ---
 const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
-const audioCtx = new AudioContextClass();
+let audioCtx: AudioContext | null = null;
 
 const NOTE_FREQUENCIES: Record<string, number> = {
   'C': 16.35, 'C#': 17.32, 'Db': 17.32, 'D': 18.35, 'D#': 19.45, 'Eb': 19.45,
@@ -15,16 +16,27 @@ const NOTE_FREQUENCIES: Record<string, number> = {
 
 const getFrequency = (note: string, octave: number) => {
   const base = NOTE_FREQUENCIES[note];
+  if (!base) return 0;
   return base * Math.pow(2, octave);
 };
 
+const initAudio = () => {
+    if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+    }
+    if (audioCtx?.state === 'suspended') {
+        audioCtx.resume();
+    }
+};
+
 const strumChord = (notes: { note: string, octave: number }[]) => {
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  initAudio();
+  if (!audioCtx) return;
   
   const now = audioCtx.currentTime;
   notes.forEach((n, i) => {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const osc = audioCtx!.createOscillator();
+    const gain = audioCtx!.createGain();
     
     // Guitar-ish oscillator mix
     osc.type = 'triangle'; // Closer to a plucked string than sine
@@ -32,17 +44,17 @@ const strumChord = (notes: { note: string, octave: number }[]) => {
     osc.frequency.value = getFrequency(n.note, n.octave);
     
     // Strumming delay
-    const strumDelay = i * 0.03;
+    const strumDelay = i * 0.035; 
     
     gain.gain.setValueAtTime(0, now + strumDelay);
-    gain.gain.linearRampToValueAtTime(0.3, now + strumDelay + 0.05);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + strumDelay + 2.0);
+    gain.gain.linearRampToValueAtTime(0.25, now + strumDelay + 0.05); // Attack
+    gain.gain.exponentialRampToValueAtTime(0.001, now + strumDelay + 2.5); // Decay
     
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(audioCtx!.destination);
     
     osc.start(now + strumDelay);
-    osc.stop(now + strumDelay + 2.5);
+    osc.stop(now + strumDelay + 3.0);
   });
 };
 
@@ -52,14 +64,69 @@ const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', '
 const SCALE_PATTERNS: Record<string, number[]> = {
   'Major': [0, 2, 4, 5, 7, 9, 11],
   'Natural Minor': [0, 2, 3, 5, 7, 8, 10],
+  'Melodic Minor (Jazz)': [0, 2, 3, 5, 7, 9, 11], // Jazz Minor: 1 2 b3 4 5 6 7
   'Harmonic Minor': [0, 2, 3, 5, 7, 8, 11],
   'Dorian': [0, 2, 3, 5, 7, 9, 10],
   'Mixolydian': [0, 2, 4, 5, 7, 9, 10],
+  'Locrian': [0, 1, 3, 5, 6, 8, 10], // 1 b2 b3 4 b5 b6 b7
   'Phrygian': [0, 1, 3, 5, 7, 8, 10],
   'Lydian': [0, 2, 4, 6, 7, 9, 11],
 };
 
 const ROMAN_NUMERALS = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'];
+
+// Offsets from the barre/nut for common shapes
+// -1 means mute, numbers are relative fret adds
+const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
+    // TRIADS (Fallbacks)
+    '': { // Major
+        eShape: [0, 2, 2, 1, 0, 0],
+        aShape: [-1, 0, 2, 2, 2, 0]
+    },
+    'm': { // Minor
+        eShape: [0, 2, 2, 0, 0, 0],
+        aShape: [-1, 0, 2, 2, 1, 0]
+    },
+    'dim': { // Diminished Triad
+        eShape: [0, 1, 2, 0, -1, -1],
+        aShape: [-1, 0, 1, 2, 1, -1]
+    },
+    // 7TH CHORDS (Jazz/Blues Essentials)
+    'maj7': {
+        // Emaj7 (Shell-ish or Barre): 0 2 1 1 0 0
+        eShape: [0, 2, 1, 1, 0, 0], 
+        // Amaj7: x 0 2 1 2 0
+        aShape: [-1, 0, 2, 1, 2, 0] 
+    },
+    'm7': {
+        // Em7: 0 2 0 0 0 0
+        eShape: [0, 2, 0, 0, 0, 0],
+        // Am7: x 0 2 0 1 0
+        aShape: [-1, 0, 2, 0, 1, 0]
+    },
+    '7': { // Dominant 7
+        // E7: 0 2 0 1 0 0
+        eShape: [0, 2, 0, 1, 0, 0],
+        // A7: x 0 2 0 2 0
+        aShape: [-1, 0, 2, 0, 2, 0]
+    },
+    'm7b5': { // Half Diminished
+        // Em7b5 shape (root on E): 0 1 0 0 -1 -1 (Tricky, using standard Gm7b5 shape shifted: R b5 b7 b3) -> 0 x 0 0 -1 -1 ?
+        // Better E-string shape (Root, b7, b3, b5): T x 3 3 2 x (relative to root at T).
+        // Let's use: Root(0), b7(0 on D string?? No), let's use the Shell Voicing [0, x, 0, 0, -1, -1] (E, D, G)
+        eShape: [0, -1, 0, 0, -1, -1], 
+        // Am7b5 shape (root on A): x 0 1 0 1 x (Root, b5, b7, b3) -> x R b5 b7 b3
+        aShape: [-1, 0, 1, 0, 1, -1]
+    },
+    'dim7': { // Full Diminished 7
+        // E-dim7: 0 x 0 0 -1 -1 (Shell) or the symetric shape [0, 1, 0, 1, 0, x]?
+        // Standard Edim7: 0 1 0 0 -1 -1 (E, Bb, Db, G)
+        eShape: [0, 1, 0, 0, -1, -1],
+        // Adim7: x 0 1 0 1 x (Same as m7b5 shape physically but different intervals)
+        // A(0), Eb(1), Gb(2 on G?? No F#), C(1). Shape: x 0 1 2 1 x
+        aShape: [-1, 0, 1, 2, 1, -1]
+    }
+};
 
 interface Voicing {
   name: string;
@@ -101,6 +168,39 @@ const getNoteAtFret = (stringIdx: number, fret: number) => {
   return { note: noteName, octave: openNote.octave + octaveBoost };
 };
 
+// Helper to shift a shape to a specific root fret
+const createVoicingFromShape = (shape: number[], rootFret: number): number[] => {
+    return shape.map(f => {
+        if (f === -1) return -1;
+        let finalFret = f + rootFret;
+        // Optimization: prevent voicings from going too high on the neck
+        if (finalFret > 12 && shape[0] !== -1 && (shape[0] + rootFret) > 12) {
+             finalFret -= 12;
+        }
+        return finalFret;
+    });
+};
+
+const getQualityFromIntervals = (third: number, fifth: number, seventh: number): string => {
+    // 3rd: 3=min, 4=maj
+    // 5th: 6=dim, 7=perf, 8=aug
+    // 7th: 9=dim, 10=min, 11=maj
+
+    if (third === 4 && fifth === 7 && seventh === 11) return 'maj7';
+    if (third === 4 && fifth === 7 && seventh === 10) return '7'; // Dom7
+    if (third === 3 && fifth === 7 && seventh === 10) return 'm7';
+    if (third === 3 && fifth === 7 && seventh === 11) return 'mMaj7'; // Jazz Minor I
+    if (third === 3 && fifth === 6 && seventh === 10) return 'm7b5'; // Half Dim
+    if (third === 3 && fifth === 6 && seventh === 9) return 'dim7'; // Full Dim
+    
+    // Fallback to Triads if 7th is weird
+    if (third === 4 && fifth === 7) return '';
+    if (third === 3 && fifth === 7) return 'm';
+    if (third === 3 && fifth === 6) return 'dim';
+    
+    return '';
+};
+
 // Generates chords for a specific key
 const generateKeyChords = (root: string, scaleType: string): Chord[] => {
   const rootIdx = ALL_NOTES.indexOf(root);
@@ -110,85 +210,82 @@ const generateKeyChords = (root: string, scaleType: string): Chord[] => {
   const scaleNotes = pattern.map(interval => ALL_NOTES[(rootIdx + interval) % 12]);
   
   const chords: Chord[] = scaleNotes.map((note, i) => {
-    // Build triad (1-3-5)
+    // Build 7th chord (1-3-5-7)
     const thirdNote = scaleNotes[(i + 2) % 7];
     const fifthNote = scaleNotes[(i + 4) % 7];
+    const seventhNote = scaleNotes[(i + 6) % 7];
     
     // Analyze quality
-    const rootVal = ALL_NOTES.indexOf(note);
+    const chordRootVal = ALL_NOTES.indexOf(note);
     const thirdVal = ALL_NOTES.indexOf(thirdNote);
-    let thirdInterval = (thirdVal - rootVal + 12) % 12;
-    
-    let quality = '';
-    if (thirdInterval === 4) quality = ''; // Major
-    else if (thirdInterval === 3) quality = 'm'; // Minor
-    else quality = '?'; 
-    
-    // Check 5th for diminished
     const fifthVal = ALL_NOTES.indexOf(fifthNote);
-    let fifthInterval = (fifthVal - rootVal + 12) % 12;
-    if (fifthInterval === 6) quality = 'dim';
+    const seventhVal = ALL_NOTES.indexOf(seventhNote);
+    
+    const thirdInterval = (thirdVal - chordRootVal + 12) % 12;
+    const fifthInterval = (fifthVal - chordRootVal + 12) % 12;
+    const seventhInterval = (seventhVal - chordRootVal + 12) % 12;
+    
+    let quality = getQualityFromIntervals(thirdInterval, fifthInterval, seventhInterval);
 
     // Determine Function
-    let func: Chord['function'] = 'Adventure'; // Default
-    if (i === 0 || i === 2 || i === 5) func = 'Home'; // I, iii, vi (Tonic function mostly)
-    if (i === 1 || i === 3) func = 'Adventure'; // ii, IV (Subdominant)
-    if (i === 4 || i === 6) func = 'Tension'; // V, vii (Dominant)
-    
+    let func: Chord['function'] = 'Adventure'; 
+    if (i === 0) func = 'Home'; // I
+    if (i === 4) func = 'Tension'; // V
+    if (i === 6) func = 'Tension'; // vii
+    if (i === 2 || i === 5) func = 'Home'; // iii, vi (Relative minors)
+    if (i === 1 || i === 3) func = 'Adventure'; // ii, IV
+
+    // Special case for Blues/Mixolydian
+    if (scaleType === 'Mixolydian' && i === 0) func = 'Home'; // I7
+    if (scaleType === 'Mixolydian' && i === 3) func = 'Adventure'; // IV
+    if (scaleType === 'Mixolydian' && i === 4) func = 'Tension'; // v minor
+
     // Roman Numeral
     let roman = ROMAN_NUMERALS[i];
-    if (quality === '' || quality === 'aug') roman = roman.toUpperCase();
-    if (quality === 'dim') roman += '°';
+    // Upper case for Major 3rd chords
+    if (thirdInterval === 4) roman = roman.toUpperCase();
+    
+    // Add extension text
+    if (quality.includes('7')) roman += '7';
+    if (quality === 'maj7') roman = roman.replace('7', 'Maj7');
+    if (quality === 'm7b5') roman += 'ø';
+    if (quality === 'dim7') roman += '°7';
 
-    // Generate Voicings (Algorithmic-ish)
-    // Simplified lookup for common shapes based on Root String
+    // Generate Voicings
     const voicings: Voicing[] = [];
-    
-    // Try to find open chords or E-shape/A-shape barres
-    // This is a simplified "Expert System" for guitar voicings
-    
-    // E-Shape (Root on string 6)
-    const eShapeRootFret = (rootVal - ALL_NOTES.indexOf('E') + 12) % 12;
-    let eShapeFrets = [-1, -1, -1, -1, -1, -1];
-    if (quality === '') { // Major
-       // 0 2 2 1 0 0 relative to nut
-       eShapeFrets = [0, 2, 2, 1, 0, 0].map(f => f + eShapeRootFret);
-    } else if (quality === 'm') {
-       eShapeFrets = [0, 2, 2, 0, 0, 0].map(f => f + eShapeRootFret);
+    // Fallback logic: if exact 7th quality not found, fall back to triad shape
+    let shapeKey = quality;
+    if (!CHORD_SHAPES[shapeKey]) {
+        // Fallback mapping
+        if (quality === 'mMaj7') shapeKey = 'm7'; // Close enough for visual
+        else if (quality.startsWith('m')) shapeKey = 'm';
+        else if (quality.startsWith('dim')) shapeKey = 'dim';
+        else shapeKey = '';
     }
-    
-    // Adjust for open position if fret > 12
-    if (eShapeFrets[0] > 12) eShapeFrets = eShapeFrets.map(f => f - 12);
+    const shapeTemplate = CHORD_SHAPES[shapeKey] || CHORD_SHAPES['']; 
 
-    // Add E-Shape
-    const isOpenE = eShapeFrets.every(f => f <= 4);
+    // 1. E-Shape
+    const eStringIdx = ALL_NOTES.indexOf('E');
+    const eShapeRootFret = (chordRootVal - eStringIdx + 12) % 12; 
+    const eFrets = createVoicingFromShape(shapeTemplate.eShape, eShapeRootFret);
+    const isEBarre = eFrets.some(f => f > 0) && eShapeRootFret > 0;
+    
     voicings.push({
-      name: isOpenE && eShapeRootFret === 0 ? "Open Position" : `Barre (Fret ${eShapeRootFret})`,
-      frets: eShapeFrets,
-      baseFret: eShapeRootFret === 0 ? 1 : eShapeFrets[0]
+        name: !isEBarre ? "Open / Bottom" : `Root on E (Fret ${eShapeRootFret || 12})`,
+        frets: eFrets,
+        baseFret: Math.min(...eFrets.filter(f => f !== -1)) || 1
     });
 
-    // A-Shape (Root on string 5)
-    const aShapeRootFret = (rootVal - ALL_NOTES.indexOf('A') + 12) % 12;
-    let aShapeFrets = [-1, -1, -1, -1, -1, -1];
-    if (quality === '') {
-       // X 0 2 2 2 0
-       aShapeFrets = [-1, 0, 2, 2, 2, 0].map(f => f === -1 ? -1 : f + aShapeRootFret);
-    } else if (quality === 'm') {
-       // X 0 2 2 1 0
-       aShapeFrets = [-1, 0, 2, 2, 1, 0].map(f => f === -1 ? -1 : f + aShapeRootFret);
-    } else if (quality === 'dim') {
-      // X 0 1 2 1 X (dim7ish) or X 0 1 0 1 X - let's do a simple triad X R b3 b5
-      // Root(0), b5(6), b3(3+12=15? no).
-      // Let's just do a generic "Barre 5th"
-    }
+    // 2. A-Shape
+    const aStringIdx = ALL_NOTES.indexOf('A');
+    const aShapeRootFret = (chordRootVal - aStringIdx + 12) % 12;
+    const aFrets = createVoicingFromShape(shapeTemplate.aShape, aShapeRootFret);
+    const isABarre = aFrets.some(f => f > 0) && aShapeRootFret > 0;
 
-    // Add A-Shape
-    const isOpenA = aShapeFrets[1] <= 4;
     voicings.push({
-      name: isOpenA && aShapeRootFret === 0 ? "Open A-Shape" : `Barre (Fret ${aShapeRootFret})`,
-      frets: aShapeFrets,
-      baseFret: aShapeRootFret === 0 ? 1 : aShapeFrets[1]
+        name: !isABarre ? "Open A-Style" : `Root on A (Fret ${aShapeRootFret || 12})`,
+        frets: aFrets,
+        baseFret: Math.min(...aFrets.filter(f => f !== -1)) || 1
     });
 
     return {
@@ -198,7 +295,7 @@ const generateKeyChords = (root: string, scaleType: string): Chord[] => {
       name: `${note}${quality}`,
       roman,
       function: func,
-      notes: [note, thirdNote, fifthNote],
+      notes: [note, thirdNote, fifthNote, seventhNote],
       voicings: voicings,
       activeVoicingIdx: 0,
       scaleDegree: i + 1,
@@ -206,27 +303,46 @@ const generateKeyChords = (root: string, scaleType: string): Chord[] => {
     };
   });
 
-  // Add one "Stranger" chord (Non-Diatonic)
-  // Flat 7 Major (bVII) is a common rock/pop borrowing
-  const flat7Idx = (rootIdx + 10) % 12;
-  const flat7Note = ALL_NOTES[flat7Idx];
-  const strangerVoicing = [3, 5, 5, 4, 3, 3]; // G shape moved
-  // Calculate relative to G (3rd fret)
-  const gRoot = ALL_NOTES.indexOf('G');
-  const dist = (flat7Idx - gRoot + 12) % 12;
-  const sFrets = [3, 5, 5, 4, 3, 3].map(f => f + dist);
+  // "Stranger" Chord Logic (Smart Substitution)
+  // If Major: bVII7 (Backdoor/Mixolydian)
+  // If Minor: bII maj7 (Neapolitan) or V7 (if natural minor)
   
+  let strangerIdx, strangerQuality;
+  
+  if (scaleType.includes('Minor') || scaleType === 'Locrian') {
+      // Use the Major V in Minor key (Harmonic context) if not already present
+      // Natural Minor v is minor. Let's force a V7.
+      strangerIdx = (rootIdx + 7) % 12; // 5th
+      strangerQuality = '7'; // Dominant
+  } else {
+      // Major Key -> bVII7 (Mixolydian flavor / Backdoor dominant)
+      strangerIdx = (rootIdx + 10) % 12;
+      strangerQuality = '7';
+  }
+
+  const sRootNote = ALL_NOTES[strangerIdx];
+  const sTemplate = CHORD_SHAPES[strangerQuality];
+  
+  // Calculate E-Shape for Stranger
+  const eStringIdx = ALL_NOTES.indexOf('E');
+  const sRootFret = (strangerIdx - eStringIdx + 12) % 12;
+  const sFrets = createVoicingFromShape(sTemplate.eShape, sRootFret);
+
   chords.push({
-      id: `stranger-${flat7Note}`,
-      root: flat7Note,
-      quality: '',
-      name: `${flat7Note} (bVII)`,
-      roman: 'bVII',
+      id: `stranger-${sRootNote}`,
+      root: sRootNote,
+      quality: strangerQuality,
+      name: `${sRootNote}${strangerQuality}`,
+      roman: '?',
       function: 'Stranger',
-      notes: [flat7Note, ALL_NOTES[(flat7Idx+4)%12], ALL_NOTES[(flat7Idx+7)%12]],
-      voicings: [{ name: 'Borrowed Chord', frets: sFrets, baseFret: sFrets[0]}],
+      notes: [sRootNote, '?', '?', '?'], // Placeholder notes
+      voicings: [{ 
+          name: 'Mystery Guest', 
+          frets: sFrets, 
+          baseFret: Math.min(...sFrets.filter(f => f !== -1)) 
+      }],
       activeVoicingIdx: 0,
-      scaleDegree: 7, // fake
+      scaleDegree: 0, 
       isDiatonic: false
   });
 
@@ -340,6 +456,8 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
   if (!chord) return <div className="h-48 w-full bg-slate-900/50 rounded-xl flex items-center justify-center text-slate-500">Select a chord to view voicing</div>;
   
   const voicing = chord.voicings[chord.activeVoicingIdx];
+  if (!voicing) return <div className="h-48 w-full bg-slate-900/50 rounded-xl flex items-center justify-center text-red-400">Voicing data missing</div>;
+
   const fretsToShow = 5;
   const startFret = voicing.baseFret || 1;
   const endFret = startFret + fretsToShow;
@@ -528,6 +646,8 @@ export default function App() {
 
   const playSound = (chord: Chord) => {
     const voicing = chord.voicings[chord.activeVoicingIdx];
+    if (!voicing) return;
+
     const notesToPlay: {note: string, octave: number}[] = [];
     voicing.frets.forEach((fret, stringIdx) => {
       if (fret !== -1) {
@@ -682,7 +802,7 @@ export default function App() {
                  <button onClick={() => changeVoicing(-1)} className="p-2 rounded-full hover:bg-slate-800 transition-colors"><ChevronLeft size={16}/></button>
                  <div className="text-center">
                     <div className="text-xs text-slate-500 uppercase font-bold">Voicing</div>
-                    <div className="text-sm">{selectedChord.voicings[selectedChord.activeVoicingIdx].name}</div>
+                    <div className="text-sm">{selectedChord.voicings[selectedChord.activeVoicingIdx]?.name}</div>
                  </div>
                  <button onClick={() => changeVoicing(1)} className="p-2 rounded-full hover:bg-slate-800 transition-colors"><ChevronRight size={16}/></button>
                </div>
@@ -729,7 +849,7 @@ export default function App() {
              
              <div className="flex gap-2 overflow-x-auto p-4 scrollbar-hide snap-x items-center min-h-[180px]">
                {progression.length === 0 && (
-                 <div className="w-full h-32 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-600">
+                 <div className="w-full h-36 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-600">
                    <span className="text-sm">Click chords below to add them here</span>
                  </div>
                )}
