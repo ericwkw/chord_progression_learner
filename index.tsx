@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Play, Volume2, ArrowRight, X, Music, Info, Sparkles, Settings, RefreshCw, ChevronRight, ChevronLeft, HelpCircle, BookOpen } from 'lucide-react';
+import { Play, Volume2, ArrowRight, X, Music, Info, Sparkles, Settings, RefreshCw, ChevronRight, ChevronLeft, HelpCircle, BookOpen, Layers } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
 // --- AUDIO ENGINE ---
@@ -61,6 +61,7 @@ const strumChord = (notes: { note: string, octave: number }[]) => {
 // --- MUSIC THEORY ENGINE ---
 
 const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
 const SCALE_PATTERNS: Record<string, number[]> = {
   'Major': [0, 2, 4, 5, 7, 9, 11],
   'Natural Minor': [0, 2, 3, 5, 7, 8, 10],
@@ -73,12 +74,18 @@ const SCALE_PATTERNS: Record<string, number[]> = {
   'Lydian': [0, 2, 4, 6, 7, 9, 11],
 };
 
+const MUSIC_STYLES = [
+  { id: 'Pop', label: 'Pop / Folk', description: 'Sus, Add9 & Triads' },
+  { id: 'Jazz', label: 'Jazz', description: '7ths & Extensions' },
+  { id: 'Blues', label: 'Blues', description: 'Dom7s & 6ths' },
+];
+
 const ROMAN_NUMERALS = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'];
 
 // Offsets from the barre/nut for common shapes
 // -1 means mute, numbers are relative fret adds
 const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
-    // TRIADS (Fallbacks)
+    // TRIADS
     '': { // Major
         eShape: [0, 2, 2, 1, 0, 0],
         aShape: [-1, 0, 2, 2, 2, 0]
@@ -91,41 +98,45 @@ const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
         eShape: [0, 1, 2, 0, -1, -1],
         aShape: [-1, 0, 1, 2, 1, -1]
     },
-    // 7TH CHORDS (Jazz/Blues Essentials)
-    'maj7': {
-        // Emaj7 (Shell-ish or Barre): 0 2 1 1 0 0
-        eShape: [0, 2, 1, 1, 0, 0], 
-        // Amaj7: x 0 2 1 2 0
-        aShape: [-1, 0, 2, 1, 2, 0] 
+    // SUSPENDED & ADD
+    'sus4': {
+        // Esus4: 0 2 2 2 0 0
+        eShape: [0, 2, 2, 2, 0, 0],
+        // Asus4: x 0 2 2 3 0
+        aShape: [-1, 0, 2, 2, 3, 0]
     },
-    'm7': {
-        // Em7: 0 2 0 0 0 0
-        eShape: [0, 2, 0, 0, 0, 0],
-        // Am7: x 0 2 0 1 0
-        aShape: [-1, 0, 2, 0, 1, 0]
+    'sus2': {
+        // Esus2: 0 2 4 4 0 0 (Barre stretch) 
+        // Or simpler open E logic: 0 2 2 4 0 0 (Esus2 with B on G string shifted to A? No).
+        // Standard Esus2: 0 2 4 4 0 0 
+        eShape: [0, 2, 4, 4, 0, 0], 
+        // Asus2: x 0 2 2 0 0
+        aShape: [-1, 0, 2, 2, 0, 0]
     },
-    '7': { // Dominant 7
-        // E7: 0 2 0 1 0 0
-        eShape: [0, 2, 0, 1, 0, 0],
-        // A7: x 0 2 0 2 0
-        aShape: [-1, 0, 2, 0, 2, 0]
+    'add9': {
+        // Eadd9: 0 2 2 1 0 2 (Tricky pinky) or 0 2 4 1 0 0
+        eShape: [0, 2, 4, 1, 0, 0],
+        // Aadd9: x 0 2 2 2 2 (Barre+pinky) or x 0 2 4 2 0
+        aShape: [-1, 0, 2, 4, 2, 0]
     },
-    'm7b5': { // Half Diminished
-        // Em7b5 shape (root on E): 0 1 0 0 -1 -1 (Tricky, using standard Gm7b5 shape shifted: R b5 b7 b3) -> 0 x 0 0 -1 -1 ?
-        // Better E-string shape (Root, b7, b3, b5): T x 3 3 2 x (relative to root at T).
-        // Let's use: Root(0), b7(0 on D string?? No), let's use the Shell Voicing [0, x, 0, 0, -1, -1] (E, D, G)
-        eShape: [0, -1, 0, 0, -1, -1], 
-        // Am7b5 shape (root on A): x 0 1 0 1 x (Root, b5, b7, b3) -> x R b5 b7 b3
-        aShape: [-1, 0, 1, 0, 1, -1]
+    '6': {
+        // E6: 0 2 2 1 2 0
+        eShape: [0, 2, 2, 1, 2, 0],
+        // A6: x 0 2 2 2 2 (F# on top)
+        aShape: [-1, 0, 2, 2, 2, 2]
     },
-    'dim7': { // Full Diminished 7
-        // E-dim7: 0 x 0 0 -1 -1 (Shell) or the symetric shape [0, 1, 0, 1, 0, x]?
-        // Standard Edim7: 0 1 0 0 -1 -1 (E, Bb, Db, G)
-        eShape: [0, 1, 0, 0, -1, -1],
-        // Adim7: x 0 1 0 1 x (Same as m7b5 shape physically but different intervals)
-        // A(0), Eb(1), Gb(2 on G?? No F#), C(1). Shape: x 0 1 2 1 x
-        aShape: [-1, 0, 1, 2, 1, -1]
-    }
+    // 7TH CHORDS
+    'maj7': { eShape: [0, 2, 1, 1, 0, 0], aShape: [-1, 0, 2, 1, 2, 0] },
+    'm7': { eShape: [0, 2, 0, 0, 0, 0], aShape: [-1, 0, 2, 0, 1, 0] },
+    '7': { eShape: [0, 2, 0, 1, 0, 0], aShape: [-1, 0, 2, 0, 2, 0] },
+    '7sus4': { 
+        // E7sus4: 0 2 0 2 0 0 
+        eShape: [0, 2, 0, 2, 0, 0],
+        // A7sus4: x 0 2 0 3 0
+        aShape: [-1, 0, 2, 0, 3, 0]
+    },
+    'm7b5': { eShape: [0, -1, 0, 0, -1, -1], aShape: [-1, 0, 1, 0, 1, -1] },
+    'dim7': { eShape: [0, 1, 0, 0, -1, -1], aShape: [-1, 0, 1, 2, 1, -1] }
 };
 
 interface Voicing {
@@ -140,12 +151,13 @@ interface Chord {
   quality: string; // 'm', 'maj', 'dim', '7'
   name: string;
   roman: string;
-  function: 'Home' | 'Adventure' | 'Tension' | 'Stranger'; // Functional harmony role
+  function: 'Home' | 'Adventure' | 'Tension' | 'Stranger' | 'Spice'; // Functional harmony role
   notes: string[];
   voicings: Voicing[];
   activeVoicingIdx: number;
   scaleDegree: number;
   isDiatonic: boolean;
+  category: 'Team' | 'Variation' | 'Wildcard';
 }
 
 // Guitar tuning: E2, A2, D3, G3, B3, E4
@@ -181,42 +193,49 @@ const createVoicingFromShape = (shape: number[], rootFret: number): number[] => 
     });
 };
 
-const getQualityFromIntervals = (third: number, fifth: number, seventh: number): string => {
-    // 3rd: 3=min, 4=maj
-    // 5th: 6=dim, 7=perf, 8=aug
-    // 7th: 9=dim, 10=min, 11=maj
-
-    if (third === 4 && fifth === 7 && seventh === 11) return 'maj7';
-    if (third === 4 && fifth === 7 && seventh === 10) return '7'; // Dom7
-    if (third === 3 && fifth === 7 && seventh === 10) return 'm7';
-    if (third === 3 && fifth === 7 && seventh === 11) return 'mMaj7'; // Jazz Minor I
-    if (third === 3 && fifth === 6 && seventh === 10) return 'm7b5'; // Half Dim
-    if (third === 3 && fifth === 6 && seventh === 9) return 'dim7'; // Full Dim
-    
-    // Fallback to Triads if 7th is weird
+const getQualityFromIntervals = (third: number, fifth: number, seventh: number | null): string => {
+    if (seventh !== null) {
+      if (third === 4 && fifth === 7 && seventh === 11) return 'maj7';
+      if (third === 4 && fifth === 7 && seventh === 10) return '7'; // Dom7
+      if (third === 3 && fifth === 7 && seventh === 10) return 'm7';
+      if (third === 3 && fifth === 7 && seventh === 11) return 'mMaj7'; // Jazz Minor I
+      if (third === 3 && fifth === 6 && seventh === 10) return 'm7b5'; // Half Dim
+      if (third === 3 && fifth === 6 && seventh === 9) return 'dim7'; // Full Dim
+    }
+    // Fallback to Triads
     if (third === 4 && fifth === 7) return '';
     if (third === 3 && fifth === 7) return 'm';
     if (third === 3 && fifth === 6) return 'dim';
-    
     return '';
 };
 
-// Generates chords for a specific key
-const generateKeyChords = (root: string, scaleType: string): Chord[] => {
+// Generates chords for a specific key and style
+const generateKeyChords = (root: string, scaleType: string, style: string): Chord[] => {
   const rootIdx = ALL_NOTES.indexOf(root);
   const pattern = SCALE_PATTERNS[scaleType];
-  
-  // Get scale notes
   const scaleNotes = pattern.map(interval => ALL_NOTES[(rootIdx + interval) % 12]);
   
-  const chords: Chord[] = scaleNotes.map((note, i) => {
-    // Build 7th chord (1-3-5-7)
-    const thirdNote = scaleNotes[(i + 2) % 7];
-    const fifthNote = scaleNotes[(i + 4) % 7];
-    const seventhNote = scaleNotes[(i + 6) % 7];
-    
-    // Analyze quality
+  const allChords: Chord[] = [];
+
+  // 1. DIATONIC TEAM
+  scaleNotes.forEach((note, i) => {
     const chordRootVal = ALL_NOTES.indexOf(note);
+
+    let thirdNote = scaleNotes[(i + 2) % 7];
+    let fifthNote = scaleNotes[(i + 4) % 7];
+    let seventhNote = scaleNotes[(i + 6) % 7];
+
+    let useSevenths = (style === 'Jazz' || style === 'Blues');
+    let isBluesDominant = false;
+
+    // Blues Override
+    if (style === 'Blues' && (i === 0 || i === 3 || i === 4)) {
+       isBluesDominant = true;
+       thirdNote = ALL_NOTES[(chordRootVal + 4) % 12];
+       seventhNote = ALL_NOTES[(chordRootVal + 10) % 12];
+       useSevenths = true;
+    }
+
     const thirdVal = ALL_NOTES.indexOf(thirdNote);
     const fifthVal = ALL_NOTES.indexOf(fifthNote);
     const seventhVal = ALL_NOTES.indexOf(seventhNote);
@@ -225,128 +244,142 @@ const generateKeyChords = (root: string, scaleType: string): Chord[] => {
     const fifthInterval = (fifthVal - chordRootVal + 12) % 12;
     const seventhInterval = (seventhVal - chordRootVal + 12) % 12;
     
-    let quality = getQualityFromIntervals(thirdInterval, fifthInterval, seventhInterval);
+    let quality = getQualityFromIntervals(thirdInterval, fifthInterval, useSevenths ? seventhInterval : null);
 
     // Determine Function
     let func: Chord['function'] = 'Adventure'; 
     if (i === 0) func = 'Home'; // I
     if (i === 4) func = 'Tension'; // V
     if (i === 6) func = 'Tension'; // vii
-    if (i === 2 || i === 5) func = 'Home'; // iii, vi (Relative minors)
+    if (i === 2 || i === 5) func = 'Home'; // iii, vi
     if (i === 1 || i === 3) func = 'Adventure'; // ii, IV
 
-    // Special case for Blues/Mixolydian
-    if (scaleType === 'Mixolydian' && i === 0) func = 'Home'; // I7
-    if (scaleType === 'Mixolydian' && i === 3) func = 'Adventure'; // IV
-    if (scaleType === 'Mixolydian' && i === 4) func = 'Tension'; // v minor
+    if (style === 'Blues' || scaleType === 'Mixolydian') {
+       if (i === 0) func = 'Home'; if (i === 3) func = 'Adventure'; if (i === 4) func = 'Tension';
+    }
 
-    // Roman Numeral
     let roman = ROMAN_NUMERALS[i];
-    // Upper case for Major 3rd chords
     if (thirdInterval === 4) roman = roman.toUpperCase();
-    
-    // Add extension text
     if (quality.includes('7')) roman += '7';
     if (quality === 'maj7') roman = roman.replace('7', 'Maj7');
     if (quality === 'm7b5') roman += 'ø';
     if (quality === 'dim7') roman += '°7';
 
-    // Generate Voicings
-    const voicings: Voicing[] = [];
-    // Fallback logic: if exact 7th quality not found, fall back to triad shape
-    let shapeKey = quality;
-    if (!CHORD_SHAPES[shapeKey]) {
-        // Fallback mapping
-        if (quality === 'mMaj7') shapeKey = 'm7'; // Close enough for visual
-        else if (quality.startsWith('m')) shapeKey = 'm';
-        else if (quality.startsWith('dim')) shapeKey = 'dim';
-        else shapeKey = '';
-    }
-    const shapeTemplate = CHORD_SHAPES[shapeKey] || CHORD_SHAPES['']; 
+    // Build Chord Object
+    const buildChord = (q: string, n: string, r: string, f: Chord['function'], cat: Chord['category'], customId: string = '') => {
+        const voicings: Voicing[] = [];
+        let shapeKey = q;
+        if (!CHORD_SHAPES[shapeKey]) {
+            if (q === 'mMaj7') shapeKey = 'm7'; 
+            else if (q.startsWith('m')) shapeKey = 'm';
+            else if (q.startsWith('dim')) shapeKey = 'dim';
+            else shapeKey = '';
+        }
+        const shapeTemplate = CHORD_SHAPES[shapeKey] || CHORD_SHAPES['']; 
 
-    // 1. E-Shape
-    const eStringIdx = ALL_NOTES.indexOf('E');
-    const eShapeRootFret = (chordRootVal - eStringIdx + 12) % 12; 
-    const eFrets = createVoicingFromShape(shapeTemplate.eShape, eShapeRootFret);
-    const isEBarre = eFrets.some(f => f > 0) && eShapeRootFret > 0;
-    
-    voicings.push({
-        name: !isEBarre ? "Open / Bottom" : `Root on E (Fret ${eShapeRootFret || 12})`,
-        frets: eFrets,
-        baseFret: Math.min(...eFrets.filter(f => f !== -1)) || 1
-    });
+        // E-Shape
+        const eStringIdx = ALL_NOTES.indexOf('E');
+        const eShapeRootFret = (ALL_NOTES.indexOf(n) - eStringIdx + 12) % 12; 
+        const eFrets = createVoicingFromShape(shapeTemplate.eShape, eShapeRootFret);
+        const isEBarre = eFrets.some(fr => fr > 0) && eShapeRootFret > 0;
+        voicings.push({
+            name: !isEBarre ? "Open / Bottom" : `Root on E (Fret ${eShapeRootFret || 12})`,
+            frets: eFrets,
+            baseFret: Math.min(...eFrets.filter(fr => fr !== -1)) || 1
+        });
 
-    // 2. A-Shape
-    const aStringIdx = ALL_NOTES.indexOf('A');
-    const aShapeRootFret = (chordRootVal - aStringIdx + 12) % 12;
-    const aFrets = createVoicingFromShape(shapeTemplate.aShape, aShapeRootFret);
-    const isABarre = aFrets.some(f => f > 0) && aShapeRootFret > 0;
+        // A-Shape
+        const aStringIdx = ALL_NOTES.indexOf('A');
+        const aShapeRootFret = (ALL_NOTES.indexOf(n) - aStringIdx + 12) % 12;
+        const aFrets = createVoicingFromShape(shapeTemplate.aShape, aShapeRootFret);
+        const isABarre = aFrets.some(fr => fr > 0) && aShapeRootFret > 0;
+        voicings.push({
+            name: !isABarre ? "Open A-Style" : `Root on A (Fret ${aShapeRootFret || 12})`,
+            frets: aFrets,
+            baseFret: Math.min(...aFrets.filter(fr => fr !== -1)) || 1
+        });
 
-    voicings.push({
-        name: !isABarre ? "Open A-Style" : `Root on A (Fret ${aShapeRootFret || 12})`,
-        frets: aFrets,
-        baseFret: Math.min(...aFrets.filter(f => f !== -1)) || 1
-    });
-
-    return {
-      id: `${note}${quality}-${i}`,
-      root: note,
-      quality,
-      name: `${note}${quality}`,
-      roman,
-      function: func,
-      notes: [note, thirdNote, fifthNote, seventhNote],
-      voicings: voicings,
-      activeVoicingIdx: 0,
-      scaleDegree: i + 1,
-      isDiatonic: true
+        // Calculate notes for playback
+        const cNotes = [n, thirdNote, fifthNote]; 
+        
+        return {
+            id: `${n}${q}-${i}-${customId}`,
+            root: n,
+            quality: q,
+            name: `${n}${q}`,
+            roman: r,
+            function: f,
+            notes: cNotes,
+            voicings: voicings,
+            activeVoicingIdx: 0,
+            scaleDegree: i + 1,
+            isDiatonic: true,
+            category: cat
+        };
     };
+
+    allChords.push(buildChord(quality, note, roman, func, 'Team'));
+
+    // 2. VARIATIONS (Spices)
+    // Only generate variations for major/minor chords to keep it musical
+    
+    // Sus4 & Sus2
+    if (quality === '' || quality === '7') { // Major Triad or Dom7
+        allChords.push(buildChord('sus4', note, roman + 'sus4', 'Spice', 'Variation', 'sus4'));
+        allChords.push(buildChord('sus2', note, roman + 'sus2', 'Spice', 'Variation', 'sus2'));
+        if (style === 'Pop') {
+            allChords.push(buildChord('add9', note, roman + 'add9', 'Spice', 'Variation', 'add9'));
+        }
+        if (quality === '') { // Plain Major
+             allChords.push(buildChord('6', note, roman + '6', 'Spice', 'Variation', '6'));
+        }
+    }
+    
+    if (quality === '7') { // Dom7 specific
+        allChords.push(buildChord('7sus4', note, roman + '7sus', 'Tension', 'Variation', '7sus4'));
+    }
   });
 
-  // "Stranger" Chord Logic (Smart Substitution)
-  // If Major: bVII7 (Backdoor/Mixolydian)
-  // If Minor: bII maj7 (Neapolitan) or V7 (if natural minor)
-  
-  let strangerIdx, strangerQuality;
-  
-  if (scaleType.includes('Minor') || scaleType === 'Locrian') {
-      // Use the Major V in Minor key (Harmonic context) if not already present
-      // Natural Minor v is minor. Let's force a V7.
-      strangerIdx = (rootIdx + 7) % 12; // 5th
-      strangerQuality = '7'; // Dominant
-  } else {
-      // Major Key -> bVII7 (Mixolydian flavor / Backdoor dominant)
-      strangerIdx = (rootIdx + 10) % 12;
-      strangerQuality = '7';
+  // 3. WILDCARDS (Happy Accidents / Borrowed Chords)
+  const addWildcard = (degreeOffset: number, quality: string, roman: string, label: string) => {
+     const wIdx = (rootIdx + degreeOffset) % 12;
+     const wNote = ALL_NOTES[wIdx];
+     
+     // Build Voicing for Wildcard
+     const shapeKey = quality;
+     const template = CHORD_SHAPES[shapeKey] || CHORD_SHAPES[''];
+     const eStringIdx = ALL_NOTES.indexOf('E');
+     const wRootFret = (wIdx - eStringIdx + 12) % 12;
+     const wFrets = createVoicingFromShape(template.eShape, wRootFret);
+
+     allChords.push({
+        id: `wild-${wNote}${quality}`,
+        root: wNote,
+        quality: quality,
+        name: `${wNote}${quality}`,
+        roman: roman,
+        function: 'Stranger',
+        notes: [wNote, '?', '?'],
+        voicings: [{ name: label, frets: wFrets, baseFret: Math.min(...wFrets.filter(f => f !== -1)) }],
+        activeVoicingIdx: 0,
+        scaleDegree: 0,
+        isDiatonic: false,
+        category: 'Wildcard'
+     });
+  };
+
+  if (scaleType === 'Major' || scaleType === 'Mixolydian') {
+      addWildcard(10, '', 'bVII', 'Mixolydian Borrow'); // bVII Major
+      addWildcard(3, '', 'bIII', 'Chromatic Mediant'); // bIII Major
+      addWildcard(5, 'm', 'iv', 'Minor Plagal'); // iv Minor
+      addWildcard(8, '', 'bVI', 'Epic Lift'); // bVI Major
+  } else { // Minor Contexts
+      addWildcard(7, '', 'V', 'Major V (Harmonic)'); // V Major
+      addWildcard(5, '', 'IV', 'Dorian IV'); // IV Major
+      addWildcard(1, '', 'bII', 'Neapolitan'); // bII Major
   }
 
-  const sRootNote = ALL_NOTES[strangerIdx];
-  const sTemplate = CHORD_SHAPES[strangerQuality];
-  
-  // Calculate E-Shape for Stranger
-  const eStringIdx = ALL_NOTES.indexOf('E');
-  const sRootFret = (strangerIdx - eStringIdx + 12) % 12;
-  const sFrets = createVoicingFromShape(sTemplate.eShape, sRootFret);
-
-  chords.push({
-      id: `stranger-${sRootNote}`,
-      root: sRootNote,
-      quality: strangerQuality,
-      name: `${sRootNote}${strangerQuality}`,
-      roman: '?',
-      function: 'Stranger',
-      notes: [sRootNote, '?', '?', '?'], // Placeholder notes
-      voicings: [{ 
-          name: 'Mystery Guest', 
-          frets: sFrets, 
-          baseFret: Math.min(...sFrets.filter(f => f !== -1)) 
-      }],
-      activeVoicingIdx: 0,
-      scaleDegree: 0, 
-      isDiatonic: false
-  });
-
-  return chords;
+  return allChords;
 };
 
 // --- COMPONENTS ---
@@ -363,81 +396,31 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
       
       <div className="p-8 overflow-y-auto space-y-8">
         
-        {/* Section 1: The Key */}
         <div className="flex gap-4">
           <div className="bg-slate-800 p-3 rounded-xl h-fit">
             <Music size={24} className="text-cyan-400" />
           </div>
           <div>
-            <h3 className="font-bold text-lg text-white mb-2">What is a "Key"?</h3>
-            <p className="text-slate-300 leading-relaxed">
-              Think of a <strong>Key</strong> (like C Major) as a <strong>Team</strong> of notes. 
-              The chords you see at the bottom are the players on that team. 
-              They always work well together because they share the same DNA!
+            <h3 className="font-bold text-lg text-white mb-2">The Groups</h3>
+            <p className="text-slate-300 leading-relaxed mb-4">
+               We organized your chords into three buckets:
             </p>
-          </div>
-        </div>
-
-        {/* Section 2: The Colors */}
-        <div className="flex gap-4">
-           <div className="bg-slate-800 p-3 rounded-xl h-fit">
-            <Sparkles size={24} className="text-amber-400" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg text-white mb-3">The "Jobs" (Colors)</h3>
-            <p className="text-slate-300 mb-4">Every chord has a special feeling or "job" in a story:</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-lg border border-cyan-500/30">
-                <div className="w-4 h-4 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)]"></div>
-                <div>
-                  <strong className="text-cyan-200 block text-sm">Home</strong>
-                  <span className="text-xs text-slate-400">Feels safe. Songs start/end here.</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-lg border border-amber-500/30">
-                <div className="w-4 h-4 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
-                <div>
-                  <strong className="text-amber-200 block text-sm">Adventure</strong>
-                  <span className="text-xs text-slate-400">Leaves home. Exciting!</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-lg border border-rose-500/30">
-                <div className="w-4 h-4 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"></div>
-                <div>
-                  <strong className="text-rose-200 block text-sm">Tension</strong>
-                  <span className="text-xs text-slate-400">Cliffhanger! Wants to go Home.</span>
-                </div>
-              </div>
-
-               <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-lg border border-purple-500/30">
-                <div className="w-4 h-4 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
-                <div>
-                  <strong className="text-purple-200 block text-sm">Stranger</strong>
-                  <span className="text-xs text-slate-400">A cool guest. Sounds surprising.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Section 3: How to Play */}
-        <div className="flex gap-4">
-          <div className="bg-slate-800 p-3 rounded-xl h-fit">
-            <BookOpen size={24} className="text-emerald-400" />
-          </div>
-           <div>
-            <h3 className="font-bold text-lg text-white mb-2">How to use this app?</h3>
-            <ul className="text-slate-300 space-y-2 list-disc list-inside">
-              <li><strong>Click chords</strong> at the bottom to add them to your song.</li>
-              <li>Use the <strong>Scale DNA</strong> to see why a chord fits.</li>
-              <li>Ask the <strong>AI Tutor</strong> to check your work!</li>
+            <ul className="space-y-3">
+               <li className="flex gap-3">
+                  <div className="w-2 h-2 rounded-full bg-cyan-500 mt-2"></div>
+                  <div><strong className="text-cyan-200">The Team</strong>: Your main safe chords.</div>
+               </li>
+               <li className="flex gap-3">
+                  <div className="w-2 h-2 rounded-full bg-pink-400 mt-2"></div>
+                  <div><strong className="text-pink-300">Spice Rack</strong>: Variations like "Sus4" or "Add9". Same chord, new flavor.</div>
+               </li>
+               <li className="flex gap-3">
+                  <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+                  <div><strong className="text-purple-300">Wildcards</strong>: Strange chords from outside the key. Use for happy accidents!</div>
+               </li>
             </ul>
-           </div>
+          </div>
         </div>
-
       </div>
 
       <div className="p-6 border-t border-slate-800 flex justify-end bg-slate-900">
@@ -462,7 +445,6 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
   const startFret = voicing.baseFret || 1;
   const endFret = startFret + fretsToShow;
 
-  // Render Frets
   const renderFrets = () => {
     const lines = [];
     for (let i = 0; i <= fretsToShow; i++) {
@@ -476,50 +458,35 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
     }
     return lines;
   };
-
-  // Render Strings
   const renderStrings = () => {
     return [0, 1, 2, 3, 4, 5].map(s => (
       <div key={s} className="absolute h-full w-px bg-slate-500" style={{ left: `${10 + (s * 16)}%` }}></div>
     ));
   };
-
-  // Render Fingers
   const renderNotes = () => {
     return voicing.frets.map((fret, stringIdx) => {
       if (fret === -1) return (
          <div key={stringIdx} className="absolute text-slate-600 text-xs font-bold" style={{ top: '-15px', left: `${9 + (stringIdx * 16)}%` }}>X</div>
       );
-      
-      // Calculate visual position relative to view
       const relativeFret = fret - startFret;
       const isVisible = relativeFret >= 0 && relativeFret < fretsToShow;
-      
-      if (!isVisible && fret !== 0) return null; // Should adjust view really, but simplest for now
-
+      if (!isVisible && fret !== 0) return null; 
       const topPos = fret === 0 ? -10 : ((relativeFret + 0.5) / fretsToShow) * 100;
-      
       const noteInfo = getNoteAtFret(stringIdx, fret);
       const isRoot = noteInfo?.note === chord.root;
-      
       return (
         <div 
           key={stringIdx}
           className={`absolute w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm z-10
             ${isRoot ? 'bg-cyan-500 text-white' : 'bg-white text-slate-900'}
           `}
-          style={{ 
-            top: fret === 0 ? '-12px' : `calc(${topPos}% - 12px)`, 
-            left: `calc(${10 + (stringIdx * 16)}% - 12px)` 
-          }}
+          style={{ top: fret === 0 ? '-12px' : `calc(${topPos}% - 12px)`, left: `calc(${10 + (stringIdx * 16)}% - 12px)` }}
         >
           {noteInfo?.note}
         </div>
       );
     });
   };
-
-  // Render Scale Overlay
   const renderScaleOverlay = () => {
     if (!showScale) return null;
     const dots = [];
@@ -527,34 +494,20 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
       for (let f = startFret; f < endFret; f++) {
          const noteInfo = getNoteAtFret(s, f);
          if (noteInfo && scaleNotes.includes(noteInfo.note)) {
-            // Don't draw over existing chord notes
             if (voicing.frets[s] !== f) {
                const relativeFret = f - startFret;
                const topPos = ((relativeFret + 0.5) / fretsToShow) * 100;
-               dots.push(
-                 <div 
-                   key={`scale-${s}-${f}`}
-                   className="absolute w-3 h-3 rounded-full bg-slate-700/50 pointer-events-none"
-                   style={{ 
-                     top: `calc(${topPos}% - 6px)`, 
-                     left: `calc(${10 + (s * 16)}% - 6px)` 
-                   }}
-                 />
-               );
+               dots.push(<div key={`scale-${s}-${f}`} className="absolute w-3 h-3 rounded-full bg-slate-700/50 pointer-events-none" style={{ top: `calc(${topPos}% - 6px)`, left: `calc(${10 + (s * 16)}% - 6px)` }}/>);
             }
          }
       }
     }
     return dots;
   };
-
   return (
     <div className="relative w-48 h-64 bg-slate-800 rounded-lg border border-slate-700 mx-auto mt-4 p-4 overflow-hidden shadow-inner">
       <div className="relative w-full h-full">
-        {renderFrets()}
-        {renderStrings()}
-        {renderScaleOverlay()}
-        {renderNotes()}
+        {renderFrets()}{renderStrings()}{renderScaleOverlay()}{renderNotes()}
       </div>
     </div>
   );
@@ -566,26 +519,13 @@ const TheorySpectrum = ({ scaleNotes, currentChord }: { scaleNotes: string[], cu
       {scaleNotes.map((note, i) => {
         const isChordTone = currentChord?.notes.includes(note);
         const isRoot = currentChord?.root === note;
-        
         let label = (i + 1).toString();
         const isPrimary = i === 0 || i === 2 || i === 4 || i === 6;
-        if (i === 0) label = "Root";
-        else if (i === 2) label = "3rd";
-        else if (i === 4) label = "5th";
-        else if (i === 6) label = "7th";
-
+        if (i === 0) label = "Root"; else if (i === 2) label = "3rd"; else if (i === 4) label = "5th"; else if (i === 6) label = "7th";
         return (
           <div key={i} className="flex flex-col items-center gap-2 min-w-[32px]">
-            <div className={`
-               w-8 h-8 rounded flex items-center justify-center text-xs font-bold border transition-all
-               ${isRoot ? 'bg-cyan-500 border-cyan-400 text-white scale-110 shadow-lg shadow-cyan-500/50' : 
-                 isChordTone ? 'bg-slate-200 border-slate-200 text-slate-900' : 'bg-slate-800 border-slate-700 text-slate-500'}
-            `}>
-              {note}
-            </div>
-            <span className={`text-[10px] font-mono whitespace-nowrap ${isPrimary ? 'text-slate-400 font-bold' : 'text-slate-700'}`}>
-               {label}
-            </span>
+            <div className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold border transition-all ${isRoot ? 'bg-cyan-500 border-cyan-400 text-white scale-110 shadow-lg shadow-cyan-500/50' : isChordTone ? 'bg-slate-200 border-slate-200 text-slate-900' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>{note}</div>
+            <span className={`text-[10px] font-mono whitespace-nowrap ${isPrimary ? 'text-slate-400 font-bold' : 'text-slate-700'}`}>{label}</span>
           </div>
         );
       })}
@@ -595,7 +535,7 @@ const TheorySpectrum = ({ scaleNotes, currentChord }: { scaleNotes: string[], cu
 
 const ChordLegend = () => (
   <div className="flex flex-wrap gap-4 mb-4 px-2 items-center">
-    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mr-2">Chord Types:</span>
+    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mr-2">Roles:</span>
     <div className="flex items-center gap-2 text-xs text-slate-400">
       <div className="w-3 h-3 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]"></div> Home
     </div>
@@ -606,7 +546,10 @@ const ChordLegend = () => (
       <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"></div> Tension
     </div>
     <div className="flex items-center gap-2 text-xs text-slate-400">
-      <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]"></div> Stranger
+      <div className="w-3 h-3 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.4)]"></div> Spice
+    </div>
+    <div className="flex items-center gap-2 text-xs text-slate-400">
+      <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]"></div> Wildcard
     </div>
   </div>
 );
@@ -622,6 +565,7 @@ interface Transition {
 export default function App() {
   const [root, setRoot] = useState('C');
   const [scaleType, setScaleType] = useState('Major');
+  const [style, setStyle] = useState('Pop');
   const [progression, setProgression] = useState<Chord[]>([]);
   const [selectedChord, setSelectedChord] = useState<Chord | null>(null);
   const [showScale, setShowScale] = useState(false);
@@ -630,7 +574,13 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(true);
 
   // Derived Data
-  const keyChords = useMemo(() => generateKeyChords(root, scaleType), [root, scaleType]);
+  const allChords = useMemo(() => generateKeyChords(root, scaleType, style), [root, scaleType, style]);
+  
+  // Group chords for display
+  const teamChords = allChords.filter(c => c.category === 'Team');
+  const variationChords = allChords.filter(c => c.category === 'Variation');
+  const wildcardChords = allChords.filter(c => c.category === 'Wildcard');
+
   const scaleNotes = useMemo(() => {
     const idx = ALL_NOTES.indexOf(root);
     return SCALE_PATTERNS[scaleType].map(i => ALL_NOTES[(idx + i) % 12]);
@@ -684,7 +634,7 @@ export default function App() {
        return { type: 'tension', label: 'Build' };
     if (prev.function === 'Adventure' && curr.function === 'Tension')
        return { type: 'tension', label: 'Push' };
-    if (curr.function === 'Stranger')
+    if (curr.function === 'Stranger' || curr.category === 'Wildcard')
        return { type: 'adventure', label: 'Surprise' };
     
     return { type: 'neutral', label: 'Flow' };
@@ -696,6 +646,7 @@ export default function App() {
       case 'Adventure': return 'border-amber-500 shadow-amber-900/20';
       case 'Tension': return 'border-rose-500 shadow-rose-900/20';
       case 'Stranger': return 'border-purple-500 shadow-purple-900/20';
+      case 'Spice': return 'border-pink-400 shadow-pink-900/20';
       default: return 'border-slate-700';
     }
   };
@@ -706,6 +657,7 @@ export default function App() {
       case 'Adventure': return 'bg-amber-500 text-slate-900';
       case 'Tension': return 'bg-rose-500 text-white';
       case 'Stranger': return 'bg-purple-500 text-white';
+      case 'Spice': return 'bg-pink-400 text-slate-900';
       default: return 'bg-slate-700 text-slate-300';
     }
   };
@@ -717,6 +669,7 @@ export default function App() {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const prompt = `Analyze this chord progression in the key of ${root} ${scaleType} for a beginner guitar student (5th grade level).
       Progression: ${progression.map(c => c.name).join(' -> ')}.
+      Musical Style: ${style}.
       Explain why it works in 2 simple sentences. Use emojis.`;
       
       const response = await ai.models.generateContent({
@@ -750,7 +703,24 @@ export default function App() {
              </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+             
+             {/* STYLE SELECTOR */}
+             <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700 mr-2">
+                {MUSIC_STYLES.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setStyle(s.id); setProgression([]); }}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                      style === s.id ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title={s.description}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+             </div>
+
              <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-lg border border-slate-700">
                <select 
                  value={root} 
@@ -929,28 +899,71 @@ export default function App() {
           )}
 
           {/* CHORD PALETTE */}
-          <div>
-            <div className="flex justify-between items-end mb-3 ml-1">
-               <h3 className="text-slate-400 font-bold uppercase text-xs tracking-wider">Available Chords (The Safe Team)</h3>
-            </div>
-            
+          <div className="space-y-6">
             <ChordLegend />
 
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {keyChords.map((chord) => (
-                <button
-                  key={chord.id}
-                  onClick={() => addChord(chord)}
-                  className={`
-                    aspect-square rounded-xl flex flex-col items-center justify-center border bg-slate-900 transition-all hover:scale-105 active:scale-95
-                    ${getFunctionColor(chord.function)} hover:bg-slate-800
-                  `}
-                >
-                  <span className="text-xl font-bold">{chord.name}</span>
-                  <span className="text-[10px] text-slate-500 font-mono mt-1">{chord.roman}</span>
-                </button>
-              ))}
+            {/* TEAM SECTION */}
+            <div>
+               <h3 className="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Layers size={14}/> The Team (Diatonic)</h3>
+               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                 {teamChords.map((chord) => (
+                   <button
+                     key={chord.id}
+                     onClick={() => addChord(chord)}
+                     className={`
+                       aspect-square rounded-xl flex flex-col items-center justify-center border bg-slate-900 transition-all hover:scale-105 active:scale-95
+                       ${getFunctionColor(chord.function)} hover:bg-slate-800
+                     `}
+                   >
+                     <span className="text-xl font-bold text-center leading-tight">{chord.name}</span>
+                     <span className="text-[10px] text-slate-500 font-mono mt-1">{chord.roman}</span>
+                   </button>
+                 ))}
+               </div>
             </div>
+
+            {/* VARIATIONS SECTION */}
+            {variationChords.length > 0 && (
+                <div>
+                <h3 className="text-pink-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Sparkles size={14}/> Spice Rack (Variations)</h3>
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {variationChords.map((chord) => (
+                    <button
+                        key={chord.id}
+                        onClick={() => addChord(chord)}
+                        className={`
+                        aspect-square rounded-xl flex flex-col items-center justify-center border bg-slate-900 transition-all hover:scale-105 active:scale-95
+                        ${getFunctionColor(chord.function)} hover:bg-slate-800
+                        `}
+                    >
+                        <span className="text-lg font-bold text-center leading-tight">{chord.name}</span>
+                        <span className="text-[10px] text-slate-500 font-mono mt-1">{chord.quality}</span>
+                    </button>
+                    ))}
+                </div>
+                </div>
+            )}
+
+            {/* WILDCARDS SECTION */}
+             <div>
+               <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Settings size={14}/> Wildcards (Happy Accidents)</h3>
+               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                 {wildcardChords.map((chord) => (
+                   <button
+                     key={chord.id}
+                     onClick={() => addChord(chord)}
+                     className={`
+                       aspect-square rounded-xl flex flex-col items-center justify-center border bg-slate-900 transition-all hover:scale-105 active:scale-95
+                       border-purple-500 shadow-purple-900/20 hover:bg-slate-800
+                     `}
+                   >
+                     <span className="text-lg font-bold text-center leading-tight">{chord.name}</span>
+                     <span className="text-[9px] text-slate-500 font-mono mt-1 text-center px-1">{chord.roman}</span>
+                   </button>
+                 ))}
+               </div>
+            </div>
+
           </div>
 
         </div>
