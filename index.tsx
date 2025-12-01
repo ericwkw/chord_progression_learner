@@ -578,7 +578,7 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
     return dots;
   };
   return (
-    <div className="relative w-48 h-64 bg-slate-800 rounded-lg border border-slate-700 mx-auto mt-4 p-4 overflow-hidden shadow-inner">
+    <div className="relative w-full max-w-[320px] h-64 bg-slate-800 rounded-lg border border-slate-700 mx-auto mt-4 p-4 overflow-hidden shadow-inner">
       <div className="relative w-full h-full">
         {renderFrets()}{renderStrings()}{renderScaleOverlay()}{renderNotes()}
       </div>
@@ -765,7 +765,7 @@ export default function App() {
 
       {/* HEADER & CONTROLS */}
       <div className="p-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
                <Music className="text-white" size={20} />
@@ -821,7 +821,7 @@ export default function App() {
         </div>
       </div>
 
-      <div className="flex-1 max-w-4xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="flex-1 max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* LEFT COLUMN: VISUALIZER */}
         <div className="lg:col-span-5 flex flex-col gap-4">
@@ -978,7 +978,7 @@ export default function App() {
             {/* TEAM SECTION */}
             <div>
                <h3 className="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Layers size={14}/> The Team (Diatonic)</h3>
-               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
+               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                  {teamChords.map((chord) => (
                    <button
                      key={chord.id}
@@ -999,7 +999,7 @@ export default function App() {
             {variationChords.length > 0 && (
                 <div>
                 <h3 className="text-pink-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Sparkles size={14}/> Spice Rack (Variations)</h3>
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                     {variationChords.map((chord) => (
                     <button
                         key={chord.id}
@@ -1020,7 +1020,7 @@ export default function App() {
             {/* WILDCARDS SECTION */}
              <div>
                <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Settings size={14}/> Wildcards (Happy Accidents)</h3>
-               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-5 gap-3">
+               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                  {wildcardChords.map((chord) => (
                    <button
                      key={chord.id}
