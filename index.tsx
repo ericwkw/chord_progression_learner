@@ -75,9 +75,9 @@ const SCALE_PATTERNS: Record<string, number[]> = {
 };
 
 const MUSIC_STYLES = [
-  { id: 'Pop', label: 'Pop / Folk', description: 'Sus, Add9 & Triads' },
+  { id: 'Pop', label: 'Pop / Folk', description: 'Triads & Sus chords' },
   { id: 'Jazz', label: 'Jazz', description: '7ths & Extensions' },
-  { id: 'Blues', label: 'Blues', description: 'Dom7s & 6ths' },
+  { id: 'Blues', label: 'Blues', description: 'Dominant Cycles' },
 ];
 
 const ROMAN_NUMERALS = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'];
@@ -138,7 +138,6 @@ const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
 };
 
 // Inversion Shapes: offsets relative to the Bass Note Fret
-// 0 means play the fret of the Bass Note. -1 means mute. Other numbers are +/- semitones relative to Bass fret.
 const INVERSION_SHAPES: Record<string, number[]> = {
     // MAJOR OVER 3rd (e.g. G/B, C/E)
     // E-Bass: Bass(0), Mute, 5th(-2), Root(0), 3rd(+1), Mute
@@ -216,8 +215,7 @@ const createInversionVoicing = (shape: number[], bassFret: number): number[] | n
         if (f === -1) return -1;
         return f + bassFret;
     });
-    // Check validity: No negative frets allowed unless it's open string logic (which we aren't doing here purely)
-    // If any fret is < 0, it's invalid
+    // Check validity: No negative frets allowed unless it's open string logic
     if (frets.some(f => f < 0 && f !== -1)) return null;
     return frets;
 };
@@ -358,7 +356,7 @@ const generateKeyChords = (root: string, scaleType: string, style: string): Chor
             }
         }
         
-        // 2. Second Inversion (Bass = 5th) - Major Only for now (cleanest)
+        // 2. Second Inversion (Bass = 5th)
         if (q === '') {
              const fifthNoteName = fifthNote;
              const fifthE_Fret = (ALL_NOTES.indexOf(fifthNoteName) - eStringIdx + 12) % 12;
@@ -462,9 +460,9 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
     <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
       <div className="p-6 border-b border-slate-800 bg-gradient-to-r from-cyan-900/20 to-blue-900/20">
         <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-          👋 Welcome to ChordLab!
+          👋 Welcome to ChordLab
         </h2>
-        <p className="text-slate-400 mt-1">Your playground for making songs.</p>
+        <p className="text-slate-400 mt-1">Generative Theory Assistant & Progression Builder</p>
       </div>
       
       <div className="p-8 overflow-y-auto space-y-8">
@@ -474,26 +472,41 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
             <Music size={24} className="text-cyan-400" />
           </div>
           <div>
-            <h3 className="font-bold text-lg text-white mb-2">The Groups</h3>
+            <h3 className="font-bold text-lg text-white mb-2">Chord Categories</h3>
             <p className="text-slate-300 leading-relaxed mb-4">
-               We organized your chords into three buckets:
+               We organized available chords into three functional groups:
             </p>
             <ul className="space-y-3">
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-cyan-500 mt-2"></div>
-                  <div><strong className="text-cyan-200">The Team</strong>: Your main safe chords.</div>
+                  <div><strong className="text-cyan-200">Diatonic (Key Center)</strong>: Chords naturally derived from the selected scale. Safe & consonant.</div>
                </li>
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-pink-400 mt-2"></div>
-                  <div><strong className="text-pink-300">Spice Rack</strong>: Variations like "Sus4" or "Add9". Same chord, new flavor.</div>
+                  <div><strong className="text-pink-300">Extensions & Suspensions</strong>: Variations (Sus4, Add9, 6ths) that add color and movement without changing the harmonic function.</div>
                </li>
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
-                  <div><strong className="text-purple-300">Wildcards</strong>: Strange chords from outside the key. Use for happy accidents!</div>
+                  <div><strong className="text-purple-300">Borrowed (Modal Interchange)</strong>: Non-diatonic chords borrowed from parallel modes. Use these for "happy accidents" or unexpected modulation.</div>
                </li>
             </ul>
           </div>
         </div>
+
+         <div className="flex gap-4">
+           <div className="bg-slate-800 p-3 rounded-xl h-fit">
+            <Sparkles size={24} className="text-amber-400" />
+          </div>
+           <div>
+             <h3 className="font-bold text-lg text-white mb-2">Functional Harmony</h3>
+             <p className="text-slate-300">The border colors represent the harmonic role of the chord:</p>
+              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500"></div> Tonic (Home)</div>
+                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> Subdominant (Adventure)</div>
+                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div> Dominant (Tension)</div>
+              </div>
+           </div>
+         </div>
       </div>
 
       <div className="p-6 border-t border-slate-800 flex justify-end bg-slate-900">
@@ -501,7 +514,7 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
           onClick={onClose}
           className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-cyan-900/50"
         >
-          Let's Play! <ArrowRight size={18} />
+          Start Creating <ArrowRight size={18} />
         </button>
       </div>
     </div>
@@ -608,21 +621,21 @@ const TheorySpectrum = ({ scaleNotes, currentChord }: { scaleNotes: string[], cu
 
 const ChordLegend = () => (
   <div className="flex flex-wrap gap-4 mb-4 px-2 items-center">
-    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mr-2">Roles:</span>
+    <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest mr-2">Functions:</span>
     <div className="flex items-center gap-2 text-xs text-slate-400">
-      <div className="w-3 h-3 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]"></div> Home
+      <div className="w-3 h-3 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]"></div> Tonic
     </div>
     <div className="flex items-center gap-2 text-xs text-slate-400">
-      <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div> Adventure
+      <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"></div> Subdominant
     </div>
     <div className="flex items-center gap-2 text-xs text-slate-400">
-      <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"></div> Tension
+      <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"></div> Dominant
     </div>
     <div className="flex items-center gap-2 text-xs text-slate-400">
-      <div className="w-3 h-3 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.4)]"></div> Spice
+      <div className="w-3 h-3 rounded-full bg-pink-400 shadow-[0_0_8px_rgba(244,114,182,0.4)]"></div> Extension
     </div>
     <div className="flex items-center gap-2 text-xs text-slate-400">
-      <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]"></div> Wildcard
+      <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.4)]"></div> Borrowed
     </div>
   </div>
 );
@@ -740,10 +753,10 @@ export default function App() {
     setIsAiLoading(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-      const prompt = `Analyze this chord progression in the key of ${root} ${scaleType} for a beginner guitar student (5th grade level).
+      const prompt = `Analyze this chord progression in the key of ${root} ${scaleType} for an intermediate guitar student.
       Progression: ${progression.map(c => c.name).join(' -> ')}.
       Musical Style: ${style}.
-      Explain why it works in 2 simple sentences. Use emojis.`;
+      Explain the functional harmony and voice leading. Brief & concise.`;
       
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -844,7 +857,7 @@ export default function App() {
                <div className="flex items-center gap-4 mt-4">
                  <button onClick={() => changeVoicing(-1)} className="p-2 rounded-full hover:bg-slate-800 transition-colors"><ChevronLeft size={16}/></button>
                  <div className="text-center">
-                    <div className="text-xs text-slate-500 uppercase font-bold">Voicing</div>
+                    <div className="text-xs text-slate-500 uppercase font-bold">Current Voicing</div>
                     <div className="text-sm">{selectedChord.voicings[selectedChord.activeVoicingIdx]?.name}</div>
                  </div>
                  <button onClick={() => changeVoicing(1)} className="p-2 rounded-full hover:bg-slate-800 transition-colors"><ChevronRight size={16}/></button>
@@ -854,11 +867,11 @@ export default function App() {
 
           {/* Theory Spectrum */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">Scale DNA</h2>
+             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">Interval Map</h2>
              <TheorySpectrum scaleNotes={scaleNotes} currentChord={selectedChord} />
              <div className="mt-4 text-center">
                <p className="text-[10px] text-slate-500">
-                 The <strong>Root, 3rd, and 5th</strong> are the building blocks of chords in this key.
+                 Highlighted notes show the construction of the active chord relative to the key.
                </p>
              </div>
           </div>
@@ -872,7 +885,7 @@ export default function App() {
              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
                 <h3 className="font-bold text-slate-200 flex items-center gap-2">
                   <Play size={16} className="text-cyan-500 fill-cyan-500" /> 
-                  Your Song
+                  Progression
                 </h3>
                 <div className="flex gap-2">
                    <button 
@@ -893,7 +906,7 @@ export default function App() {
              <div className="flex gap-2 overflow-x-auto p-4 scrollbar-hide snap-x items-center min-h-[180px]">
                {progression.length === 0 && (
                  <div className="w-full h-36 border-2 border-dashed border-slate-700 rounded-xl flex items-center justify-center text-slate-600">
-                   <span className="text-sm">Click chords below to add them here</span>
+                   <span className="text-sm">Tap chords below to start building your progression</span>
                  </div>
                )}
                
@@ -956,9 +969,9 @@ export default function App() {
                  <Sparkles className="text-indigo-400" size={20} />
                </div>
                <div className="flex-1">
-                 <h4 className="font-bold text-indigo-300 text-sm mb-1">AI Tutor</h4>
+                 <h4 className="font-bold text-indigo-300 text-sm mb-1">AI Analyst</h4>
                  <p className="text-sm text-slate-300 leading-relaxed">
-                   {aiFeedback || "Build a progression to get feedback!"}
+                   {aiFeedback || "Build a progression to analyze functional harmony and voice leading."}
                  </p>
                </div>
                <button 
@@ -977,7 +990,7 @@ export default function App() {
 
             {/* TEAM SECTION */}
             <div>
-               <h3 className="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Layers size={14}/> The Team (Diatonic)</h3>
+               <h3 className="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Layers size={14}/> Diatonic Chords (Key Center)</h3>
                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                  {teamChords.map((chord) => (
                    <button
@@ -998,7 +1011,7 @@ export default function App() {
             {/* VARIATIONS SECTION */}
             {variationChords.length > 0 && (
                 <div>
-                <h3 className="text-pink-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Sparkles size={14}/> Spice Rack (Variations)</h3>
+                <h3 className="text-pink-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Sparkles size={14}/> Extensions & Suspensions</h3>
                 <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                     {variationChords.map((chord) => (
                     <button
@@ -1019,7 +1032,7 @@ export default function App() {
 
             {/* WILDCARDS SECTION */}
              <div>
-               <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Settings size={14}/> Wildcards (Happy Accidents)</h3>
+               <h3 className="text-purple-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><Settings size={14}/> Borrowed Chords (Modal Interchange)</h3>
                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                  {wildcardChords.map((chord) => (
                    <button
@@ -1044,7 +1057,6 @@ export default function App() {
     </div>
   );
 }
-
 // RENDER APP
 const rootElement = document.getElementById('root');
 if (rootElement) {

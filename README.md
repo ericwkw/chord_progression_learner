@@ -1,48 +1,61 @@
-# 🎸 ChordLab: The Guitar Song Maker!
 
-**Welcome to ChordLab!** This is a fun playground where you can build your own guitar songs, even if you’ve never studied music theory before. 
+# 🎸 ChordLab: Generative Music Theory Assistant
 
-It’s like building with LEGOs, but for music! 🧱🎵
+**ChordLab** is an interactive web application designed for guitarists and songwriters to explore functional harmony, chord progressions, and fretboard voicings. 
 
----
-
-## 🌟 What Can You Do?
-
-### 1. **Meet "The Team"** 🤝
-When you pick a **Key** (like C Major), the app automatically finds a team of chords that work perfectly together. No more guessing—these chords are best friends!
-
-### 2. **See the Map (Fretboard)** 🗺️
-Don't know how to play a "G Major"? No problem! The **Fretboard** shows you exactly where to put your fingers on the guitar strings. It even shows you different ways (voicings) to play the same chord.
-
-### 3. **Add Some "Spice"** 🌶️
-Bored of normal chords? Open the **Spice Rack**! You can swap a regular chord for a fancy version (like a *Sus4* or *Add9*) to make your song sound sparkly and professional.
-
-### 4. **Happy Accidents (Wildcards)** 🃏
-Sometimes, breaking the rules sounds cool. The **Wildcards** section gives you special chords that don't technically "belong" but sound amazing if you use them right.
-
-### 5. **Ask the Robot Tutor** 🤖
-We have a super-smart AI brain (Google Gemini) living inside the app. Build your song, click **"Analyze"**, and the AI will explain *why* your song sounds happy, sad, or exciting!
+Unlike static chord charts, ChordLab uses a **generative music theory engine** to algorithmically calculate notes, intervals, and valid guitar voicings for any key and mode.
 
 ---
 
-## 🎮 How to Play
+## 🚀 Key Features
 
-1.  **Pick a Style**: Choose **Pop**, **Jazz**, or **Blues** at the top.
-2.  **Click Chords**: Tap the buttons at the bottom to add them to your song timeline.
-3.  **Listen**: Press **Play All** to hear your masterpiece played by a virtual guitar.
-4.  **Learn**: Look at the "Scale DNA" to see which notes are being used.
+### 1. **Generative Theory Engine**
+The app does not use hardcoded databases. Instead, it calculates chords in real-time based on music theory rules:
+*   **84+ Keys**: Supports 12 roots across 7 modes (Major, Minor, Dorian, Mixolydian, etc.).
+*   **Style-Aware Logic**:
+    *   **Pop/Folk**: Prioritizes Triads, Sus2, Sus4, and Add9 chords.
+    *   **Jazz**: Automatically harmonizes scales into 7th chords (Maj7, m7, m7b5) and generates secondary dominants.
+    *   **Blues**: Enforces Dominant 7th cycles (I7, IV7, V7).
+
+### 2. **Dynamic Fretboard Visualization**
+*   **Voicing Algorithms**: Automatically finds playable guitar voicings (CAGED system logic) based on the chord's notes.
+*   **Inversions & Slash Chords**: Generates First and Second inversions (e.g., C/E, Am/C) to facilitate voice leading.
+*   **Interval Mapping**: Visualizes how chord tones map to the scale.
+
+### 3. **Functional Harmony Analysis**
+*   **Color-Coded Functions**: Instantly identify Tonic, Subdominant, and Dominant functions.
+*   **Transition Analysis**: Detects resolution, tension, and modal interchange between chords in the timeline.
+*   **AI Integration**: Uses Google's **Gemini 2.5 Flash** model to provide natural language explanations of your progression's voice leading and emotional character.
+
+### 4. **Browser-Native Audio**
+*   **Web Audio API**: Synthesizes guitar tones directly in the browser using oscillators and gain nodes. No external sample libraries required.
 
 ---
 
-## 🏗️ For the Builders (The Tech Stuff)
+## 🛠️ Tech Stack
 
-If you are a coder looking at the engine, here are the parts we used to build this machine:
-
-*   **React**: The tool for building the screen and buttons.
-*   **Web Audio API**: The magic that makes guitar sounds directly in the browser (no MP3 files!).
-*   **Google Gemini API**: The Artificial Intelligence that acts as the music teacher.
-*   **Tailwind CSS**: The paint and style that makes it look cool.
+*   **Frontend**: React 19
+*   **Styling**: Tailwind CSS (via CDN for portability)
+*   **Audio**: Web Audio API (Oscillators/Gain)
+*   **AI**: Google GenAI SDK (`@google/genai`)
+*   **Icons**: Lucide React
 
 ---
 
-**Have fun making noise! 🎶**
+## 🤝 Contributing
+
+We welcome contributions from developers and musicians!
+
+### Ideas for Contribution:
+1.  **New Voicing Algorithms**: Improve the fretboard logic to support Drop-2 or Drop-3 voicings for Jazz.
+2.  **Rhythm Patterns**: Update the `strumChord` function to support different strumming patterns or arpeggios.
+3.  **Export**: Add MIDI export functionality for the progression timeline.
+
+### Getting Started
+1.  Clone the repo.
+2.  Open `index.html` in a browser (or serve via a local server like Vite/Live Server).
+3.  Set your `API_KEY` in the environment if you want to test the AI features.
+
+---
+
+*Built for the love of music and code.* 🎵💻
