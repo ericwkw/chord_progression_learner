@@ -106,8 +106,6 @@ const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
         aShape: [-1, 0, 2, 2, 3, 0]
     },
     'sus2': {
-        // Esus2: 0 2 4 4 0 0 (Barre stretch) 
-        // Or simpler open E logic: 0 2 2 4 0 0 (Esus2 with B on G string shifted to A? No).
         // Standard Esus2: 0 2 4 4 0 0 
         eShape: [0, 2, 4, 4, 0, 0], 
         // Asus2: x 0 2 2 0 0
@@ -137,6 +135,26 @@ const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
     },
     'm7b5': { eShape: [0, -1, 0, 0, -1, -1], aShape: [-1, 0, 1, 0, 1, -1] },
     'dim7': { eShape: [0, 1, 0, 0, -1, -1], aShape: [-1, 0, 1, 2, 1, -1] }
+};
+
+// Inversion Shapes: offsets relative to the Bass Note Fret
+// 0 means play the fret of the Bass Note. -1 means mute. Other numbers are +/- semitones relative to Bass fret.
+const INVERSION_SHAPES: Record<string, number[]> = {
+    // MAJOR OVER 3rd (e.g. G/B, C/E)
+    // E-Bass: Bass(0), Mute, 5th(-2), Root(0), 3rd(+1), Mute
+    'Maj_3_E': [0, -1, -2, 0, 1, -1], 
+    // A-Bass: Mute, Bass(0), 5th(-2), Root(-2), 3rd(-2), 5th(+1)
+    'Maj_3_A': [-1, 0, -2, -2, -2, 1],
+
+    // MINOR OVER 3rd (e.g. Gm/Bb, Am/C)
+    // E-Bass: Bass(0), Mute, 5th(-1), Root(+1), b3(+2), Mute
+    'Min_3_E': [0, -1, -1, 1, 2, -1],
+    // A-Bass: Mute, Bass(0), 5th(-1), Root(-1), b3(-2), Mute
+    'Min_3_A': [-1, 0, -1, -1, -2, -1],
+
+    // MAJOR OVER 5th (e.g. A/E, C/G)
+    // E-Bass: Bass(0), Root(0), 3rd(+2), 5th(+2), Root(+2), 3rd(0) -- A/E style
+    'Maj_5_E': [0, 0, 2, 2, 2, 0],
 };
 
 interface Voicing {
@@ -191,6 +209,17 @@ const createVoicingFromShape = (shape: number[], rootFret: number): number[] => 
         }
         return finalFret;
     });
+};
+
+const createInversionVoicing = (shape: number[], bassFret: number): number[] | null => {
+    const frets = shape.map(f => {
+        if (f === -1) return -1;
+        return f + bassFret;
+    });
+    // Check validity: No negative frets allowed unless it's open string logic (which we aren't doing here purely)
+    // If any fret is < 0, it's invalid
+    if (frets.some(f => f < 0 && f !== -1)) return null;
+    return frets;
 };
 
 const getQualityFromIntervals = (third: number, fifth: number, seventh: number | null): string => {
@@ -298,6 +327,50 @@ const generateKeyChords = (root: string, scaleType: string, style: string): Chor
             frets: aFrets,
             baseFret: Math.min(...aFrets.filter(fr => fr !== -1)) || 1
         });
+
+        // --- INVERSIONS ---
+        // 1. First Inversion (Bass = 3rd)
+        if (q === '' || q === 'm') {
+            const isMinor = q === 'm';
+            // Find 3rd note fret on E string
+            const thirdNoteName = thirdNote; 
+            const thirdE_Fret = (ALL_NOTES.indexOf(thirdNoteName) - eStringIdx + 12) % 12;
+            const shapeNameE = isMinor ? 'Min_3_E' : 'Maj_3_E';
+            const invFretsE = createInversionVoicing(INVERSION_SHAPES[shapeNameE], thirdE_Fret);
+            if (invFretsE) {
+                voicings.push({
+                    name: `/${thirdNoteName} (Bass on E)`,
+                    frets: invFretsE,
+                    baseFret: Math.min(...invFretsE.filter(fr => fr !== -1)) || 1
+                });
+            }
+
+            // Find 3rd note fret on A string
+            const thirdA_Fret = (ALL_NOTES.indexOf(thirdNoteName) - aStringIdx + 12) % 12;
+            const shapeNameA = isMinor ? 'Min_3_A' : 'Maj_3_A';
+            const invFretsA = createInversionVoicing(INVERSION_SHAPES[shapeNameA], thirdA_Fret);
+            if (invFretsA) {
+                voicings.push({
+                    name: `/${thirdNoteName} (Bass on A)`,
+                    frets: invFretsA,
+                    baseFret: Math.min(...invFretsA.filter(fr => fr !== -1)) || 1
+                });
+            }
+        }
+        
+        // 2. Second Inversion (Bass = 5th) - Major Only for now (cleanest)
+        if (q === '') {
+             const fifthNoteName = fifthNote;
+             const fifthE_Fret = (ALL_NOTES.indexOf(fifthNoteName) - eStringIdx + 12) % 12;
+             const invFrets5 = createInversionVoicing(INVERSION_SHAPES['Maj_5_E'], fifthE_Fret);
+             if (invFrets5) {
+                voicings.push({
+                    name: `/${fifthNoteName} (Bass on E)`,
+                    frets: invFrets5,
+                    baseFret: Math.min(...invFrets5.filter(fr => fr !== -1)) || 1
+                });
+             }
+        }
 
         // Calculate notes for playback
         const cNotes = [n, thirdNote, fifthNote]; 
