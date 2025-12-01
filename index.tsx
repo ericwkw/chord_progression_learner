@@ -467,43 +467,77 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
       
       <div className="p-8 overflow-y-auto space-y-8">
         
+        {/* SECTION 1: GROUPS */}
         <div className="flex gap-4">
           <div className="bg-slate-800 p-3 rounded-xl h-fit">
             <Music size={24} className="text-cyan-400" />
           </div>
           <div>
-            <h3 className="font-bold text-lg text-white mb-2">Chord Categories</h3>
+            <h3 className="font-bold text-lg text-white mb-2">Chord Groups</h3>
             <p className="text-slate-300 leading-relaxed mb-4">
-               We organized available chords into three functional groups:
+               We organized chords into three buckets to help you choose:
             </p>
             <ul className="space-y-3">
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-cyan-500 mt-2"></div>
-                  <div><strong className="text-cyan-200">Diatonic (Key Center)</strong>: Chords naturally derived from the selected scale. Safe & consonant.</div>
+                  <div><strong className="text-cyan-200">Diatonic (The Team)</strong>: Chords that live in the key. They always sound "correct" together.</div>
                </li>
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-pink-400 mt-2"></div>
-                  <div><strong className="text-pink-300">Extensions & Suspensions</strong>: Variations (Sus4, Add9, 6ths) that add color and movement without changing the harmonic function.</div>
+                  <div><strong className="text-pink-300">Extensions (Spice)</strong>: Variations like "sus" or "add9". Same root note, different flavor.</div>
                </li>
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
-                  <div><strong className="text-purple-300">Borrowed (Modal Interchange)</strong>: Non-diatonic chords borrowed from parallel modes. Use these for "happy accidents" or unexpected modulation.</div>
+                  <div><strong className="text-purple-300">Borrowed (Wildcards)</strong>: Chords from other keys. Use these for a cool surprise!</div>
                </li>
             </ul>
           </div>
         </div>
 
+         {/* SECTION 2: GLOSSARY */}
+         <div className="flex gap-4">
+          <div className="bg-slate-800 p-3 rounded-xl h-fit">
+            <BookOpen size={24} className="text-pink-400" />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-white mb-2">Chord Types Cheat Sheet</h3>
+            <div className="space-y-4 text-sm text-slate-300">
+              <div>
+                <strong className="text-white block mb-1">sus (Suspended):</strong> 
+                Imagine holding your breath. These chords replace the stable middle note with a neighbor (2nd or 4th). They sound "floating" and want to resolve back to a normal chord.
+              </div>
+              <div>
+                <strong className="text-white block mb-1">add9:</strong> 
+                Like putting a cherry on top. It's a standard chord with one extra high note added for sparkle. Very popular in Pop music.
+              </div>
+              <div>
+                <strong className="text-white block mb-1">7 (Dominant 7th):</strong> 
+                The "Blues" sound. It adds a tension note that pulls strongly to the next chord.
+              </div>
+              <div>
+                <strong className="text-white block mb-1">maj7 (Major 7th):</strong> 
+                The "Jazz/Lo-Fi" sound. It feels dreamy, soft, and nostalgic.
+              </div>
+              <div>
+                <strong className="text-white block mb-1">Slash Chords (e.g., C/E):</strong> 
+                The chord is C, but the bass plays E. It helps connect chords smoothly, like walking down a ramp instead of taking stairs.
+              </div>
+            </div>
+          </div>
+        </div>
+
+         {/* SECTION 3: COLORS */}
          <div className="flex gap-4">
            <div className="bg-slate-800 p-3 rounded-xl h-fit">
             <Sparkles size={24} className="text-amber-400" />
           </div>
            <div>
-             <h3 className="font-bold text-lg text-white mb-2">Functional Harmony</h3>
-             <p className="text-slate-300">The border colors represent the harmonic role of the chord:</p>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500"></div> Tonic (Home)</div>
-                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> Subdominant (Adventure)</div>
-                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div> Dominant (Tension)</div>
+             <h3 className="font-bold text-lg text-white mb-2">The Colors (Roles)</h3>
+             <p className="text-slate-300 mb-2">Every chord has a job in the story:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-cyan-500"></div> <span><strong>Tonic:</strong> Home base. Feels finished.</span></div>
+                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div> <span><strong>Subdominant:</strong> Going on an adventure.</span></div>
+                 <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-rose-500"></div> <span><strong>Dominant:</strong> Tension! Wants to go Home.</span></div>
               </div>
            </div>
          </div>
