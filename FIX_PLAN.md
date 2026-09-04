@@ -1,7 +1,7 @@
 # ChordLab — Fix & Test Plan
 
 **Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#12
-followed up on music-theory accuracy (September 2026). All 84 tests
+followed up on music-theory accuracy (September 2026). All 97 tests
 pass; `typecheck` and `build` are clean; CI runs on every PR. The one
 deliberately deferred item is URL-hash progression sharing (a separate
 feature, not a fix).
@@ -20,6 +20,7 @@ feature, not a fix).
 | #10 | 5 | Key-aware enharmonic note spelling (F major → B♭, flat keys reachable) |
 | #11 | 5 | Recognise augmented / altered chord qualities (harmonic & melodic minor) |
 | #12 | 5 | Generate secondary dominants (V7/ii, V7/V, …) in the Jazz style |
+| #13 | 6 | Real transition analysis — cadences, root motion, borrowing (`src/engine/harmony.ts`) |
 
 ## Verification gate (run for every change)
 
@@ -198,6 +199,41 @@ didn't; the only non-diatonic chords were modal-interchange borrowings.
 - The renamed function labels ("Home / Adventure / Tension / Stranger /
   Spice") and the crude scale-degree → function mapping are unchanged;
   they are a deliberate simplification, not a bug.
+
+---
+
+## Phase 6 — README claims that were oversold — DONE (PR #13)
+
+A review of the README against the code flagged three soft spots. #13
+addresses the biggest one.
+
+### Transition analysis (PR #13)
+The README said transition analysis "detects resolution, tension, and
+modal interchange", but `getTransitionInfo` was a five-case lookup on
+functional-role pairs living inside `index.tsx`.
+
+- New `src/engine/harmony.ts` — pure `analyzeTransition(prev, curr)`
+  returning `{ type, label, detail }`. Detects: secondary-dominant
+  tonicisation, suspension resolution, the four cadence types
+  (authentic / plagal / deceptive / half), chromatic mediant,
+  circle-of-fifths / whole-step / semitone root motion, modal-interchange
+  borrowing (enter and leave), and same-root recolouring, before falling
+  back to the functional-role heuristic.
+- Each result carries a one-line `detail` string, shown as the badge's
+  `title` (hover) in the progression timeline. New `motion` transition
+  type (sky-blue badge).
+- `index.tsx` drops its local `Transition` type + `getTransitionInfo`
+  and imports from the engine.
+- `src/engine/harmony.test.ts` — the cadences, root-motion patterns,
+  borrowing, tonicisation, suspension and recolour cases, plus a sweep
+  asserting every pair yields a non-empty `detail`.
+
+### Still oversold (smaller, not yet done)
+- **"CAGED system logic"** for voicings — really just E-shape and
+  A-shape barre transposition (2 of the 5 CAGED shapes) plus a few
+  hand-authored inversion tables.
+- **Inversions / slash chords** — generated for plain major/minor
+  triads only, not 7th chords or extensions.
 
 ---
 
