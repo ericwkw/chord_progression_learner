@@ -15,14 +15,16 @@ import {
   markGuideSeen,
 } from './src/services/persistence';
 import {
-  ALL_NOTES,
+  ROOT_OPTIONS,
   SCALE_PATTERNS,
   MUSIC_STYLES,
   getNoteAtFret,
+  spellNoteInKey,
   generateKeyChords,
   type Chord,
   type Voicing,
 } from './src/engine/theory';
+import { noteToPc, spellScale } from './src/engine/notes';
 
 // Monotonic id source for chords added to the progression — unique even when
 // several chords are added within the same millisecond.
@@ -169,7 +171,7 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
       if (!isVisible && fret !== 0) return null; 
       const topPos = fret === 0 ? -10 : ((relativeFret + 0.5) / fretsToShow) * 100;
       const noteInfo = getNoteAtFret(stringIdx, fret);
-      const isRoot = noteInfo?.note === chord.root;
+      const isRoot = noteInfo?.pc === chord.rootPc;
       return (
         <div 
           key={stringIdx}
@@ -178,7 +180,7 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
           `}
           style={{ top: fret === 0 ? '-12px' : `calc(${topPos}% - 12px)`, left: `calc(${10 + (stringIdx * 16)}% - 12px)` }}
         >
-          {noteInfo?.note}
+          {noteInfo ? spellNoteInKey(noteInfo.pc, scaleNotes) : null}
         </div>
       );
     });
@@ -189,7 +191,7 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
     for (let s = 0; s < 6; s++) {
       for (let f = startFret; f < endFret; f++) {
          const noteInfo = getNoteAtFret(s, f);
-         if (noteInfo && scaleNotes.includes(noteInfo.note)) {
+         if (noteInfo && scaleNotes.some(n => noteToPc(n) === noteInfo.pc)) {
             if (voicing.frets[s] !== f) {
                const relativeFret = f - startFret;
                const topPos = ((relativeFret + 0.5) / fretsToShow) * 100;
@@ -279,10 +281,10 @@ export default function App() {
   const variationChords = allChords.filter(c => c.category === 'Variation');
   const wildcardChords = allChords.filter(c => c.category === 'Wildcard');
 
-  const scaleNotes = useMemo(() => {
-    const idx = ALL_NOTES.indexOf(root);
-    return SCALE_PATTERNS[scaleType].map(i => ALL_NOTES[(idx + i) % 12]);
-  }, [root, scaleType]);
+  const scaleNotes = useMemo(
+    () => spellScale(root, SCALE_PATTERNS[scaleType]),
+    [root, scaleType],
+  );
 
   // Restore a saved progression once, against the initial palette.
   useEffect(() => {
@@ -324,15 +326,15 @@ export default function App() {
     const voicing = chord.voicings[chord.activeVoicingIdx];
     if (!voicing) return;
 
-    const notesToPlay: {note: string, octave: number}[] = [];
+    const notesToPlay: { pc: number, octave: number }[] = [];
     voicing.frets.forEach((fret, stringIdx) => {
       if (fret !== -1) {
         const note = getNoteAtFret(stringIdx, fret);
         if (note) notesToPlay.push(note);
       }
     });
-    // Sort by pitch
-    notesToPlay.sort((a,b) => (a.octave * 12 + ALL_NOTES.indexOf(a.note)) - (b.octave * 12 + ALL_NOTES.indexOf(b.note)));
+    // Sort low to high so the strum ascends.
+    notesToPlay.sort((a, b) => (a.octave * 12 + a.pc) - (b.octave * 12 + b.pc));
     strumChord(notesToPlay);
   };
 
@@ -449,7 +451,7 @@ export default function App() {
                  onChange={(e) => { setRoot(e.target.value); setProgression([]); }}
                  className="bg-slate-800 text-white text-sm font-bold py-1.5 px-3 rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                >
-                 {ALL_NOTES.map(n => <option key={n} value={n}>{n}</option>)}
+                 {ROOT_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
                </select>
                <select 
                  value={scaleType} 

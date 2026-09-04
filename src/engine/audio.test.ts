@@ -2,18 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getFrequency, strumChord } from './audio';
 
 describe('getFrequency', () => {
-  it('A4 ≈ 440 Hz', () => {
-    expect(getFrequency('A', 4)).toBeCloseTo(440, 0);
+  it('A4 (pc 9) ≈ 440 Hz', () => {
+    expect(getFrequency(9, 4)).toBeCloseTo(440, 1);
   });
 
   it('C0 ≈ 16.35 Hz and each octave doubles', () => {
-    expect(getFrequency('C', 0)).toBeCloseTo(16.35, 1);
-    expect(getFrequency('C', 4)).toBeCloseTo(261.63, 0);
+    expect(getFrequency(0, 0)).toBeCloseTo(16.35, 1);
+    expect(getFrequency(0, 4)).toBeCloseTo(261.63, 1);
   });
 
-  it('unknown note → 0', () => {
-    expect(getFrequency('?', 4)).toBe(0);
-    expect(getFrequency('H', 3)).toBe(0);
+  it('non-finite pitch class → 0', () => {
+    expect(getFrequency(NaN, 4)).toBe(0);
   });
 });
 
@@ -58,9 +57,9 @@ beforeEach(() => {
 describe('strumChord', () => {
   it('creates one oscillator + gain per note and wires them to the destination', () => {
     strumChord([
-      { note: 'C', octave: 3 },
-      { note: 'E', octave: 3 },
-      { note: 'G', octave: 3 },
+      { pc: 0, octave: 3 },
+      { pc: 4, octave: 3 },
+      { pc: 7, octave: 3 },
     ]);
     expect(oscillators).toHaveLength(3);
     expect(gains).toHaveLength(3);
@@ -74,24 +73,24 @@ describe('strumChord', () => {
 
   it('staggers oscillator start times by ~0.035s (strum)', () => {
     strumChord([
-      { note: 'C', octave: 3 },
-      { note: 'E', octave: 3 },
+      { pc: 0, octave: 3 },
+      { pc: 4, octave: 3 },
     ]);
     const t0 = oscillators[0].start.mock.calls[0][0];
     const t1 = oscillators[1].start.mock.calls[0][0];
     expect(t1 - t0).toBeCloseTo(0.035, 3);
   });
 
-  it('sets oscillator frequency from the note', () => {
-    strumChord([{ note: 'A', octave: 4 }]);
-    expect(oscillators[0].frequency.value).toBeCloseTo(440, 0);
+  it('sets oscillator frequency from the pitch class', () => {
+    strumChord([{ pc: 9, octave: 4 }]);
+    expect(oscillators[0].frequency.value).toBeCloseTo(440, 1);
   });
 
-  it('2.8 — skips notes with an unresolvable frequency (no dead oscillator)', () => {
+  it('skips notes with a non-finite pitch class (no dead oscillator)', () => {
     strumChord([
-      { note: 'C', octave: 3 },
-      { note: '?', octave: 3 },
-      { note: 'G', octave: 3 },
+      { pc: 0, octave: 3 },
+      { pc: NaN, octave: 3 },
+      { pc: 7, octave: 3 },
     ]);
     expect(oscillators).toHaveLength(2);
   });

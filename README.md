@@ -77,8 +77,12 @@ The app runs fully without an API key; only the **AI Analyst** panel needs `GEMI
 | Path | Contents |
 | --- | --- |
 | `index.tsx` | React components + app bootstrap |
+| `src/engine/notes.ts` | Note spelling — pitch classes ↔ key-aware enharmonic names (F major → B♭, not A♯) |
 | `src/engine/theory.ts` | Pure music-theory engine — scales, chord generation, voicings, inversions |
-| `src/engine/audio.ts` | Web Audio synthesis — frequencies, strum playback |
+| `src/engine/audio.ts` | Web Audio synthesis — equal-tempered frequencies, strum playback |
+| `src/services/ai.ts` | Gemini progression analysis (dynamically imported) |
+| `src/services/persistence.ts` | localStorage save/restore for the working progression |
+| `src/components/ErrorBoundary.tsx` | Top-level render-error fallback |
 
 ---
 
