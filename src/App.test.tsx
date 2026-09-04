@@ -26,6 +26,7 @@ const paletteButton = (name: string) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe('App — smoke', () => {
@@ -109,5 +110,41 @@ describe('App — smoke', () => {
     await user.click(nextBtn!);
 
     expect(label()).not.toEqual(first);
+  });
+});
+
+describe('App — persistence', () => {
+  it('restores the progression and skips the guide after a remount', async () => {
+    const user = userEvent.setup();
+    const first = render(<App />);
+    await dismissGuide(user);
+
+    await user.click(paletteButton('C I'));
+    await user.click(paletteButton('G V'));
+    // Two chips in the progression strip.
+    expect(screen.getByRole('button', { name: /analyze/i })).toBeInTheDocument();
+
+    first.unmount();
+    render(<App />);
+
+    // Guide was marked seen, so it does not reappear.
+    expect(screen.queryByText(/welcome to chordlab/i)).not.toBeInTheDocument();
+    // The two-chord progression came back (AI panel needs 2+ chords).
+    expect(await screen.findByRole('button', { name: /analyze/i })).toBeInTheDocument();
+    expect(screen.queryByText(/tap chords below to start building/i)).not.toBeInTheDocument();
+  });
+
+  it('clears stored chords when the progression is cleared', async () => {
+    const user = userEvent.setup();
+    const first = render(<App />);
+    await dismissGuide(user);
+    await user.click(paletteButton('C I'));
+    await user.click(paletteButton('G V'));
+
+    await user.click(screen.getByRole('button', { name: /^clear$/i }));
+
+    first.unmount();
+    render(<App />);
+    expect(screen.getByText(/tap chords below to start building/i)).toBeInTheDocument();
   });
 });
