@@ -24,7 +24,7 @@ The app does not use hardcoded databases. Instead, it calculates chords in real-
 
 ### 3. **Functional Harmony Analysis**
 *   **Color-Coded Functions**: Instantly identify Tonic, Subdominant, and Dominant functions.
-*   **Transition Analysis**: Detects resolution, tension, and modal interchange between chords in the timeline.
+*   **Transition Analysis**: Names the harmonic event between adjacent chords — authentic / plagal / deceptive / half cadences, circle-of-fifths and stepwise root motion, tonicisation by a secondary dominant, and modal-interchange borrowing — each with a one-line explanation.
 *   **AI Integration**: Uses Google's **Gemini 2.5 Flash** model to provide natural language explanations of your progression's voice leading and emotional character.
 
 ### 4. **Browser-Native Audio**
@@ -78,7 +78,8 @@ The app runs fully without an API key; only the **AI Analyst** panel needs `GEMI
 | --- | --- |
 | `index.tsx` | React components + app bootstrap |
 | `src/engine/notes.ts` | Note spelling — pitch classes ↔ key-aware enharmonic names (F major → B♭, not A♯) |
-| `src/engine/theory.ts` | Pure music-theory engine — scales, chord generation, voicings, inversions |
+| `src/engine/theory.ts` | Pure music-theory engine — scales, chord generation, voicings, inversions, secondary dominants |
+| `src/engine/harmony.ts` | Transition analysis — names the cadence / root-motion / borrowing between two chords |
 | `src/engine/audio.ts` | Web Audio synthesis — equal-tempered frequencies, strum playback |
 | `src/services/ai.ts` | Gemini progression analysis (dynamically imported) |
 | `src/services/persistence.ts` | localStorage save/restore for the working progression |

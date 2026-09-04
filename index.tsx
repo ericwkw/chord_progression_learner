@@ -25,6 +25,7 @@ import {
   type Voicing,
 } from './src/engine/theory';
 import { noteToPc, spellScale } from './src/engine/notes';
+import { analyzeTransition } from './src/engine/harmony';
 
 // Monotonic id source for chords added to the progression — unique even when
 // several chords are added within the same millisecond.
@@ -258,12 +259,6 @@ const ChordLegend = () => (
 
 // --- MAIN APP ---
 
-interface Transition {
-  type: 'resolution' | 'tension' | 'adventure' | 'neutral';
-  label: string;
-  icon?: React.ReactNode;
-}
-
 export default function App() {
   const [savedState] = useState(() => loadProgression());
   const [root, setRoot] = useState(savedState?.root ?? 'C');
@@ -359,23 +354,6 @@ export default function App() {
     playSound(updated);
   };
 
-  const getTransitionInfo = (prev: Chord, curr: Chord): Transition => {
-    // A secondary dominant landing on the chord it tonicises.
-    if (prev.category === 'Secondary' && prev.resolvesTo &&
-        curr.roman.replace(/[^ivIV]/g, '') === prev.resolvesTo.replace(/[^ivIV]/g, ''))
-       return { type: 'resolution', label: 'Tonicize' };
-    // Simple Functional Logic
-    if (prev.function === 'Tension' && curr.function === 'Home')
-       return { type: 'resolution', label: 'Resolve' };
-    if (prev.function === 'Home' && curr.function === 'Tension')
-       return { type: 'tension', label: 'Build' };
-    if (prev.function === 'Adventure' && curr.function === 'Tension')
-       return { type: 'tension', label: 'Push' };
-    if (curr.function === 'Stranger' || curr.category === 'Wildcard')
-       return { type: 'adventure', label: 'Surprise' };
-    
-    return { type: 'neutral', label: 'Flow' };
-  };
 
   const getFunctionColor = (func: string) => {
     switch (func) {
@@ -558,20 +536,24 @@ export default function App() {
                )}
                
                {progression.map((chord, idx) => {
-                  const transition = (idx > 0) ? getTransitionInfo(progression[idx-1], chord) : null;
-                  
+                  const transition = (idx > 0) ? analyzeTransition(progression[idx-1], chord) : null;
+
                   return (
                    <React.Fragment key={chord.id || idx}>
-                     
+
                      {transition && (
-                       <div className="flex flex-col items-center justify-center w-16 px-1 z-10 -ml-2 -mr-2 flex-shrink-0 animate-in fade-in zoom-in duration-300">
+                       <div
+                         className="flex flex-col items-center justify-center w-16 px-1 z-10 -ml-2 -mr-2 flex-shrink-0 animate-in fade-in zoom-in duration-300"
+                         title={transition.detail}
+                       >
                           <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-slate-800 border shadow-sm ${
                             transition.type === 'resolution' ? 'border-cyan-500 text-cyan-500' :
                             transition.type === 'tension' ? 'border-rose-500 text-rose-500' :
                             transition.type === 'adventure' ? 'border-amber-500 text-amber-500' :
+                            transition.type === 'motion' ? 'border-sky-500 text-sky-500' :
                             'border-slate-500 text-slate-400'
                           }`}>
-                            {transition.icon || <ArrowRight size={12}/>}
+                            <ArrowRight size={12}/>
                           </div>
                           <span className="text-[9px] text-slate-400 font-bold mt-1 text-center leading-tight w-full truncate">
                             {transition.label}

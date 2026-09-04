@@ -60,8 +60,8 @@ describe('App — smoke', () => {
     await user.click(paletteButton('C I'));
     await user.click(paletteButton('G V'));
 
-    // A transition label renders between the two chips.
-    expect(screen.getByText(/^(Resolve|Build|Push|Surprise|Flow)$/)).toBeInTheDocument();
+    // I → V is a half cadence; the transition badge names it.
+    expect(screen.getByText('Half')).toBeInTheDocument();
   });
 
   it('reveals the AI Analyst panel once the progression has 2+ chords and returns feedback', async () => {
