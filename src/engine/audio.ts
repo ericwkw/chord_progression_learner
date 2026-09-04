@@ -36,13 +36,16 @@ export const strumChord = (notes: { note: string, octave: number }[]) => {
 
   const now = audioCtx.currentTime;
   notes.forEach((n, i) => {
+    const freq = getFrequency(n.note, n.octave);
+    if (!freq) return; // unknown / unresolvable note — skip the dead oscillator
+
     const osc = audioCtx!.createOscillator();
     const gain = audioCtx!.createGain();
 
     // Guitar-ish oscillator mix
     osc.type = 'triangle'; // Closer to a plucked string than sine
 
-    osc.frequency.value = getFrequency(n.note, n.octave);
+    osc.frequency.value = freq;
 
     // Strumming delay
     const strumDelay = i * 0.035;

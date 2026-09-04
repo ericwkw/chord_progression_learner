@@ -137,27 +137,26 @@ export const getNoteAtFret = (stringIdx: number, fret: number) => {
   return { note: noteName, octave: openNote.octave + octaveBoost };
 };
 
+// The lowest fretted (non-muted) fret of a voicing, used to position the
+// fretboard render. Returns 1 when every string is muted (no finite min).
+const lowestFret = (frets: number[]): number => {
+    const lo = Math.min(...frets.filter(f => f !== -1));
+    return Number.isFinite(lo) ? lo : 1;
+};
+
 // Helper to shift a shape to a specific root fret
 const createVoicingFromShape = (shape: number[], rootFret: number): number[] => {
-    return shape.map(f => {
-        if (f === -1) return -1;
-        let finalFret = f + rootFret;
-        // Optimization: prevent voicings from going too high on the neck
-        if (finalFret > 12 && shape[0] !== -1 && (shape[0] + rootFret) > 12) {
-             finalFret -= 12;
-        }
-        return finalFret;
-    });
+    return shape.map(f => (f === -1 ? -1 : f + rootFret));
 };
 
 const createInversionVoicing = (shape: number[], bassFret: number): number[] | null => {
-    const frets = shape.map(f => {
-        if (f === -1) return -1;
-        return f + bassFret;
-    });
-    // Check validity: No negative frets allowed unless it's open string logic
-    if (frets.some(f => f < 0 && f !== -1)) return null;
-    return frets;
+    // If the bass note sits at or near the nut the raw shape can dip below
+    // fret 0; retry an octave up before giving up.
+    for (const bf of [bassFret, bassFret + 12]) {
+        const frets = shape.map(f => (f === -1 ? -1 : f + bf));
+        if (!frets.some(f => f < 0 && f !== -1) && Math.max(...frets) <= 15) return frets;
+    }
+    return null;
 };
 
 const getQualityFromIntervals = (third: number, fifth: number, seventh: number | null): string => {
@@ -231,6 +230,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
     if (quality === 'maj7') roman = roman.replace('7', 'Maj7');
     if (quality === 'm7b5') roman += 'ø';
     if (quality === 'dim7') roman += '°7';
+    if (quality === 'dim') roman += '°';
 
     // Build Chord Object
     const buildChord = (q: string, n: string, r: string, f: Chord['function'], cat: Chord['category'], customId: string = '') => {
@@ -252,7 +252,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
         voicings.push({
             name: !isEBarre ? "Open / Bottom" : `Root on E (Fret ${eShapeRootFret || 12})`,
             frets: eFrets,
-            baseFret: Math.min(...eFrets.filter(fr => fr !== -1)) || 1
+            baseFret: lowestFret(eFrets)
         });
 
         // A-Shape
@@ -263,7 +263,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
         voicings.push({
             name: !isABarre ? "Open A-Style" : `Root on A (Fret ${aShapeRootFret || 12})`,
             frets: aFrets,
-            baseFret: Math.min(...aFrets.filter(fr => fr !== -1)) || 1
+            baseFret: lowestFret(aFrets)
         });
 
         // --- INVERSIONS ---
@@ -279,7 +279,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
                 voicings.push({
                     name: `/${thirdNoteName} (Bass on E)`,
                     frets: invFretsE,
-                    baseFret: Math.min(...invFretsE.filter(fr => fr !== -1)) || 1
+                    baseFret: lowestFret(invFretsE)
                 });
             }
 
@@ -291,7 +291,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
                 voicings.push({
                     name: `/${thirdNoteName} (Bass on A)`,
                     frets: invFretsA,
-                    baseFret: Math.min(...invFretsA.filter(fr => fr !== -1)) || 1
+                    baseFret: lowestFret(invFretsA)
                 });
             }
         }
@@ -305,7 +305,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
                 voicings.push({
                     name: `/${fifthNoteName} (Bass on E)`,
                     frets: invFrets5,
-                    baseFret: Math.min(...invFrets5.filter(fr => fr !== -1)) || 1
+                    baseFret: lowestFret(invFrets5)
                 });
              }
         }
@@ -371,7 +371,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
         roman: roman,
         function: 'Stranger',
         notes: [wNote, '?', '?'],
-        voicings: [{ name: label, frets: wFrets, baseFret: Math.min(...wFrets.filter(f => f !== -1)) }],
+        voicings: [{ name: label, frets: wFrets, baseFret: lowestFret(wFrets) }],
         activeVoicingIdx: 0,
         scaleDegree: 0,
         isDiatonic: false,

@@ -33,6 +33,8 @@ The theory engine is pure and deterministic but un-importable because `index.tsx
 
 ## Phase 2 — Fix confirmed bugs
 
+**Status: landed in PR3.** 2.1 (dead-code delete), 2.3, 2.4, 2.5, 2.6, 2.7, 2.8 all done with tests. 2.2 folded into the 2.4 fix (`createInversionVoicing` now retries an octave up).
+
 ### 2.1 `createVoicingFromShape` octave-fold — NOT A BUG (dead code)
 `src/engine/theory.ts` `createVoicingFromShape`. The `if (finalFret > 12 && shape[0] !== -1 && (shape[0] + rootFret) > 12)` branch can never run: every `eShape` in `CHORD_SHAPES` has `shape[0]` of `0` or `-1`, so `shape[0] + rootFret > 12` requires `rootFret > 12`, and `rootFret` is `% 12`. PR2 tests confirmed high-root voicings (A#, B) are already contiguous.
 **Action:** delete the dead branch for clarity; no behavior change. (Covered by the existing voicing-integrity test.)

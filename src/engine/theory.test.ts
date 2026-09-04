@@ -129,25 +129,31 @@ describe('inversions / slash chords (current behavior)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Regression specs for known bugs (FIX_PLAN Phase 2). These assert the CORRECT
-// behavior and are expected to fail until PR3 lands the fixes.
+// Regression specs for the FIX_PLAN Phase 2 bug fixes (landed in PR3).
 // ---------------------------------------------------------------------------
-describe('known bugs — expected to fail until fixed', () => {
-  it.fails('2.3 — open-position voicings report baseFret 0, not 1', () => {
+describe('bug fixes (FIX_PLAN Phase 2)', () => {
+  it('2.3 — open-position voicings report baseFret 0, not 1', () => {
     // E major triad in the key of E: low string is open (fret 0).
     const eMajor = team(generateKeyChords('E', 'Major', 'Pop'))[0];
     expect(eMajor.voicings[0].baseFret).toBe(0);
   });
 
-  it.fails('2.4 — a first-inversion voicing is offered even when the 3rd sits at the nut', () => {
-    // C major: 3rd = E = fret 0 on the low E string, so the E-string
-    // first-inversion shape is silently dropped (negative frets → null).
+  it('2.4 — a first-inversion voicing is offered even when the 3rd sits at the nut', () => {
+    // C major: 3rd = E = fret 0 on the low E string. The shape is now
+    // retried an octave up instead of being dropped.
     const cMajor = team(generateKeyChords('C', 'Major', 'Pop'))[0];
     expect(cMajor.voicings.map(v => v.name).join(' | ')).toMatch(/\/E \(Bass on E\)/);
   });
 
-  it.fails('2.7 — diminished triads carry a ° roman marker', () => {
+  it('2.7 — diminished triads carry a ° roman marker', () => {
     const bDim = team(generateKeyChords('C', 'Major', 'Pop'))[6];
+    expect(bDim.name).toBe('Bdim');
     expect(bDim.roman).toContain('°');
+  });
+
+  it('2.7 — half-diminished (m7b5) keeps its ø marker, not °', () => {
+    const bHalfDim = team(generateKeyChords('C', 'Major', 'Jazz'))[6];
+    expect(bHalfDim.roman).toContain('ø');
+    expect(bHalfDim.roman).not.toContain('°');
   });
 });
