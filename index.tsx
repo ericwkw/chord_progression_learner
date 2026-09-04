@@ -53,7 +53,7 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
           <div>
             <h3 className="font-bold text-lg text-white mb-2">Chord Groups</h3>
             <p className="text-slate-300 leading-relaxed mb-4">
-               We organized chords into three buckets to help you choose:
+               We sort chords into buckets to help you choose:
             </p>
             <ul className="space-y-3">
                <li className="flex gap-3">
@@ -63,6 +63,10 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-pink-400 mt-2"></div>
                   <div><strong className="text-pink-300">Extensions (Spice)</strong>: Variations like "sus" or "add9". Same root note, different flavor.</div>
+               </li>
+               <li className="flex gap-3">
+                  <div className="w-2 h-2 rounded-full bg-rose-500 mt-2"></div>
+                  <div><strong className="text-rose-300">Secondary Dominants</strong> (Jazz): A "V7 of" chord that borrows tension to spotlight the next chord — e.g. <span className="font-mono">D7 → G</span> in C.</div>
                </li>
                <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
@@ -280,6 +284,7 @@ export default function App() {
   const teamChords = allChords.filter(c => c.category === 'Team');
   const variationChords = allChords.filter(c => c.category === 'Variation');
   const wildcardChords = allChords.filter(c => c.category === 'Wildcard');
+  const secondaryChords = allChords.filter(c => c.category === 'Secondary');
 
   const scaleNotes = useMemo(
     () => spellScale(root, SCALE_PATTERNS[scaleType]),
@@ -355,8 +360,12 @@ export default function App() {
   };
 
   const getTransitionInfo = (prev: Chord, curr: Chord): Transition => {
+    // A secondary dominant landing on the chord it tonicises.
+    if (prev.category === 'Secondary' && prev.resolvesTo &&
+        curr.roman.replace(/[^ivIV]/g, '') === prev.resolvesTo.replace(/[^ivIV]/g, ''))
+       return { type: 'resolution', label: 'Tonicize' };
     // Simple Functional Logic
-    if (prev.function === 'Tension' && curr.function === 'Home') 
+    if (prev.function === 'Tension' && curr.function === 'Home')
        return { type: 'resolution', label: 'Resolve' };
     if (prev.function === 'Home' && curr.function === 'Tension')
        return { type: 'tension', label: 'Build' };
@@ -687,6 +696,28 @@ export default function App() {
                  ))}
                </div>
             </div>
+
+            {/* SECONDARY DOMINANTS SECTION */}
+            {secondaryChords.length > 0 && (
+              <div>
+                <h3 className="text-rose-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-2"><ArrowRight size={14}/> Secondary Dominants (Borrowed Tension)</h3>
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                  {secondaryChords.map((chord) => (
+                    <button
+                      key={chord.id}
+                      onClick={() => addChord(chord)}
+                      className={`
+                        aspect-square rounded-xl flex flex-col items-center justify-center border bg-slate-900 transition-all hover:scale-105 active:scale-95
+                        border-rose-500 shadow-rose-900/20 hover:bg-slate-800
+                      `}
+                    >
+                      <span className="text-lg font-bold text-center leading-tight">{chord.name}</span>
+                      <span className="text-[9px] text-slate-500 font-mono mt-1 text-center px-1">{chord.roman}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
 

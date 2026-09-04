@@ -1,7 +1,7 @@
 # ChordLab — Fix & Test Plan
 
-**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#11
-followed up on music-theory accuracy (September 2026). All 78 tests
+**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#12
+followed up on music-theory accuracy (September 2026). All 84 tests
 pass; `typecheck` and `build` are clean; CI runs on every PR. The one
 deliberately deferred item is URL-hash progression sharing (a separate
 feature, not a fix).
@@ -19,6 +19,7 @@ feature, not a fix).
 | #9 | 4 | Persist the working progression to `localStorage` |
 | #10 | 5 | Key-aware enharmonic note spelling (F major → B♭, flat keys reachable) |
 | #11 | 5 | Recognise augmented / altered chord qualities (harmonic & melodic minor) |
+| #12 | 5 | Generate secondary dominants (V7/ii, V7/V, …) in the Jazz style |
 
 ## Verification gate (run for every change)
 
@@ -128,7 +129,7 @@ Appends `°` when `quality === 'dim'` (half-diminished `m7b5` keeps `ø`).
 
 ---
 
-## Phase 5 — Music-theory accuracy — DONE (PRs #10–#11)
+## Phase 5 — Music-theory accuracy — DONE (PRs #10–#12)
 
 Follow-ups from a review of how faithfully the engine models theory.
 
@@ -174,6 +175,22 @@ were mislabeled — C harmonic minor's III (E♭ G B) came out as a plain
 - Tests: C harmonic minor (Pop triads + Jazz 7ths), C melodic minor, a
   pitch-class check that augmented voicings really spell root/+4/+8, and
   the ø / °7 roman regressions.
+
+### Secondary dominants (PR #12)
+The README promised the Jazz style "generates secondary dominants" — it
+didn't; the only non-diatonic chords were modal-interchange borrowings.
+
+- New `Secondary` chord category. For the Jazz style, `generateKeyChords`
+  emits a dominant-7 chord a perfect fifth above every **major or minor**
+  diatonic degree (skipping the tonic and any diminished/augmented
+  degree), labelled `V7/ii`, `V7/V`, … with a `resolvesTo` field.
+- `index.tsx`: a "Secondary Dominants" palette section (rose, shown only
+  when non-empty); `getTransitionInfo` shows a **"Tonicize"** badge when
+  a secondary dominant is followed by the chord it targets; guide-modal
+  copy updated.
+- Tests: Jazz-only gating, the five V7/x for C major and A minor, "a
+  fifth above the target" pitch check (`V7/V` = D7 = D F# A C), playable
+  voicings, plus an App test for the section appearing on Jazz.
 
 ### Still not modeled
 - `dimMaj7` (diminished triad + major 7th) — doesn't arise in the nine
