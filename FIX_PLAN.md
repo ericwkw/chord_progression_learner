@@ -105,7 +105,7 @@ Vite 6 is already a dep; add `vitest` + `@testing-library/react` + `jsdom` as de
 - ~~Code-split: dynamic-`import()` the `@google/genai` SDK so it's not in the main 520 kB bundle (only loaded when "Analyze" is clicked).~~ **DONE (PR6)** — moved to `src/services/ai.ts` with a dynamic import; main bundle 520 kB → 224 kB (gzip 128 → 70), SDK now in a lazy chunk.
 - ~~`ErrorBoundary` around `<App/>` so an engine throw shows a message, not a white screen.~~ **DONE (PR7)** — `src/components/ErrorBoundary.tsx` wraps the root render; also added the missing `@types/react` / `@types/react-dom` dev deps (the project had none).
 - ~~Move Tailwind off the CDN `<script>` to a real build dependency for production.~~ **DONE (PR8)** — Tailwind v4 via `@tailwindcss/vite`, entry CSS at `src/index.css`, `tw-animate-css` for the `animate-in` utilities. Built CSS ~35 kB (7 kB gzip) vs the ~3 MB CDN runtime. Also removed the stale aistudiocdn importmap and the `process` polyfill from `index.html`.
-- Consider persisting a progression to `localStorage` / URL hash.
+- ~~Consider persisting a progression to `localStorage` / URL hash.~~ **DONE (PR9)** — `src/services/persistence.ts` stores a compact `{root, scaleType, style, chords:[{templateId, activeVoicingIdx}]}` descriptor in `localStorage`; chords are rebuilt from the theory engine on load. Also remembers the "seen the guide" flag. (URL-hash sharing not done — a separate feature.)
 
 ---
 

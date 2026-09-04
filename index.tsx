@@ -7,6 +7,14 @@ import { analyzeProgression } from './src/services/ai';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { strumChord } from './src/engine/audio';
 import {
+  loadProgression,
+  saveProgression,
+  restoreChords,
+  templateIdOf,
+  hasSeenGuide,
+  markGuideSeen,
+} from './src/services/persistence';
+import {
   ALL_NOTES,
   SCALE_PATTERNS,
   MUSIC_STYLES,
@@ -251,15 +259,17 @@ interface Transition {
 }
 
 export default function App() {
-  const [root, setRoot] = useState('C');
-  const [scaleType, setScaleType] = useState('Major');
-  const [style, setStyle] = useState('Pop');
+  const [savedState] = useState(() => loadProgression());
+  const [root, setRoot] = useState(savedState?.root ?? 'C');
+  const [scaleType, setScaleType] = useState(savedState?.scaleType ?? 'Major');
+  const [style, setStyle] = useState(savedState?.style ?? 'Pop');
   const [progression, setProgression] = useState<Chord[]>([]);
   const [selectedChord, setSelectedChord] = useState<Chord | null>(null);
   const [showScale, setShowScale] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiFeedback, setAiFeedback] = useState<string | null>(null);
-  const [showGuide, setShowGuide] = useState(true);
+  const [showGuide, setShowGuide] = useState(() => !hasSeenGuide());
+  const restoredRef = useRef(false);
 
   // Derived Data
   const allChords = useMemo(() => generateKeyChords(root, scaleType, style), [root, scaleType, style]);
@@ -273,6 +283,34 @@ export default function App() {
     const idx = ALL_NOTES.indexOf(root);
     return SCALE_PATTERNS[scaleType].map(i => ALL_NOTES[(idx + i) % 12]);
   }, [root, scaleType]);
+
+  // Restore a saved progression once, against the initial palette.
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    if (savedState?.chords.length) {
+      const restored = restoreChords(savedState.chords, allChords, nextChordSeq);
+      if (restored.length) {
+        setProgression(restored);
+        setSelectedChord(restored[restored.length - 1]);
+      }
+    }
+  }, [allChords]);
+
+  // Persist the working state (compact descriptor only). The key selection is
+  // saved even with an empty progression so it survives a refresh.
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    saveProgression({
+      root,
+      scaleType,
+      style,
+      chords: progression.map(c => ({
+        templateId: templateIdOf(c.id),
+        activeVoicingIdx: c.activeVoicingIdx,
+      })),
+    });
+  }, [progression, root, scaleType, style]);
 
   const addChord = (chordTemplate: Chord) => {
     // Clone to allow independent voicing changes
@@ -372,7 +410,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
       
-      {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
+      {showGuide && <GuideModal onClose={() => { setShowGuide(false); markGuideSeen(); }} />}
 
       {/* HEADER & CONTROLS */}
       <div className="p-6 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-50">
