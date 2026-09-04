@@ -1,5 +1,10 @@
 // --- AUDIO ENGINE ---
-const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+// Resolved lazily (not at module load) so the module is safe to import in
+// non-browser environments such as the test runner.
+const getAudioContextClass = (): typeof AudioContext | undefined =>
+  typeof window === 'undefined'
+    ? undefined
+    : (window.AudioContext || (window as any).webkitAudioContext);
 let audioCtx: AudioContext | null = null;
 
 export const NOTE_FREQUENCIES: Record<string, number> = {
@@ -16,6 +21,8 @@ export const getFrequency = (note: string, octave: number) => {
 
 export const initAudio = () => {
     if (!audioCtx) {
+        const AudioContextClass = getAudioContextClass();
+        if (!AudioContextClass) return;
         audioCtx = new AudioContextClass();
     }
     if (audioCtx?.state === 'suspended') {
