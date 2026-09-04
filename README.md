@@ -35,7 +35,7 @@ The app does not use hardcoded databases. Instead, it calculates chords in real-
 ## 🛠️ Tech Stack
 
 *   **Frontend**: React 19
-*   **Styling**: Tailwind CSS (via CDN for portability)
+*   **Styling**: Tailwind CSS v4 (compiled at build time via `@tailwindcss/vite`)
 *   **Audio**: Web Audio API (Oscillators/Gain)
 *   **AI**: Google GenAI SDK (`@google/genai`)
 *   **Icons**: Lucide React

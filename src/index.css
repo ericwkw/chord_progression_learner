@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Fonts are loaded via a <link> in index.html */
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #0f172a; /* slate-900 */
+  color: #e2e8f0;
+}
+
+.font-display {
+  font-family: "Fredoka", sans-serif;
+}
+
+/* Hide the scrollbar on the horizontally-scrolling progression strip */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
