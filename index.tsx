@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Play, Volume2, ArrowRight, X, Music, Info, Sparkles, Settings, RefreshCw, ChevronRight, ChevronLeft, HelpCircle, BookOpen, Layers } from 'lucide-react';
 import { analyzeProgression } from './src/services/ai';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { strumChord } from './src/engine/audio';
 import {
   ALL_NOTES,
@@ -657,5 +658,9 @@ export default function App() {
 // RENDER APP
 const rootElement = document.getElementById('root');
 if (rootElement) {
-  createRoot(rootElement).render(<App />);
+  createRoot(rootElement).render(
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
 }
