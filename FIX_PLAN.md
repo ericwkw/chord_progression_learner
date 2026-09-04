@@ -1,9 +1,10 @@
 # ChordLab — Fix & Test Plan
 
-**Status: complete.** Phases 0–4 landed across PRs #1–#9 (September 2026). All
-51 tests pass; `typecheck` and `build` are clean; CI runs on every PR.
-The one deliberately deferred item is URL-hash progression sharing (a
-separate feature, not a fix).
+**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#11
+followed up on music-theory accuracy (September 2026). All 78 tests
+pass; `typecheck` and `build` are clean; CI runs on every PR. The one
+deliberately deferred item is URL-hash progression sharing (a separate
+feature, not a fix).
 
 | PR | Phase | Summary |
 | --- | --- | --- |
@@ -16,6 +17,8 @@ separate feature, not a fix).
 | #7 | 4 | `ErrorBoundary` around `<App/>`; added missing `@types/react` |
 | #8 | 4 | Tailwind CDN → build-time v4 via `@tailwindcss/vite` |
 | #9 | 4 | Persist the working progression to `localStorage` |
+| #10 | 5 | Key-aware enharmonic note spelling (F major → B♭, flat keys reachable) |
+| #11 | 5 | Recognise augmented / altered chord qualities (harmonic & melodic minor) |
 
 ## Verification gate (run for every change)
 
@@ -123,5 +126,63 @@ Appends `°` when `quality === 'dim'` (half-diminished `m7b5` keeps `ø`).
 - **Tailwind at build time (PR #8).** Tailwind v4 via `@tailwindcss/vite`; entry stylesheet `src/index.css`; `tw-animate-css` for the `animate-in` utilities. Built CSS ~35 kB (7 kB gzip) vs the ~3 MB CDN JIT runtime — and it works offline. Removed the stale `aistudiocdn` importmap and the `process` polyfill from `index.html`.
 - **Progression persistence (PR #9).** `src/services/persistence.ts` stores a compact `{ root, scaleType, style, chords: [{ templateId, activeVoicingIdx }] }` descriptor in `localStorage`; chords are rebuilt from `generateKeyChords()` on load (missing templates skipped, voicing index clamped). All storage access is `try/catch`'d. Also remembers a "seen the guide" flag.
 
-### Deferred (not a fix — its own feature)
+---
+
+## Phase 5 — Music-theory accuracy — DONE (PRs #10–#11)
+
+Follow-ups from a review of how faithfully the engine models theory.
+
+### Enharmonic note spelling (PR #10)
+Notes were spelled from a fixed all-sharps chromatic scale, so F major
+showed `A#` for `Bb` and flat keys (D♭, G♭…) were unreachable — teaching
+wrong note names.
+
+- `src/engine/notes.ts` (new): a note's identity is its **pitch class**
+  (`0..11`); the **name** is a key-dependent view. `spellScale(tonic,
+  pattern)` assigns one letter A–G per scale degree (F major → `F G A Bb
+  C D E`; F♯ major → correct `E#`; C Locrian → all flats). Spellings
+  needing 3+ accidentals fall back to a plain sharp/flat name (only
+  pathological mode + key combos).
+- `theory.ts`: all interval math via `noteToPc`; scale, chord, and
+  borrowed-chord roots spelled in key context. `Chord` gains `rootPc`
+  for spelling-independent comparison. Root picker offers `ROOT_OPTIONS`
+  (`C Db D Eb E F F# G Ab A Bb B`). `getNoteAtFret` returns `{ pc,
+  octave }`; `spellNoteInKey` renders a fret label.
+- `audio.ts`: `getFrequency(pc, octave)` is equal-tempered from C0, so
+  any spelling (`Bb`, `A#`, `Cb`, double accidentals) plays the right
+  pitch; `strumChord` takes `{ pc, octave }`.
+- persistence bumped to `v2` (v1 chord ids used the old spelling).
+- Tests: `src/engine/notes.test.ts` (spelling, accidental budget, a
+  one-letter-per-degree invariant over every key × scale); enharmonic
+  cases in `theory.test.ts`; `audio.test.ts` moved to the pc API.
+
+### Augmented / altered chord qualities (PR #11)
+`getQualityFromIntervals` only knew major/minor/diminished triads and
+the common sevenths, so tertian stacks from harmonic and melodic minor
+were mislabeled — C harmonic minor's III (E♭ G B) came out as a plain
+`Eb` major triad.
+
+- Added detection for `aug` (3rd 4 / 5th 8), `maj7#5`, `7#5`, `7b5`.
+- New `aug` chord shape (open Eaug / Aaug); `maj7#5` / `7#5` borrow it,
+  `7b5` borrows the dom-7 shape.
+- Fixed the shape-key fallback order — `maj7#5` / `7#5` were caught by
+  `q.startsWith('m')` and voiced as minor triads.
+- Roman-numeral decoration rewritten as one if/else chain (`III+`,
+  `III+Maj7`, `V+7`, `#iv7♭5`); also removed two latent
+  double-decoration bugs (`dim7` → `vii7°7`; the generic `7` suffix
+  stacking on `maj7` / `ø`).
+- Tests: C harmonic minor (Pop triads + Jazz 7ths), C melodic minor, a
+  pitch-class check that augmented voicings really spell root/+4/+8, and
+  the ø / °7 roman regressions.
+
+### Still not modeled
+- `dimMaj7` (diminished triad + major 7th) — doesn't arise in the nine
+  scales' tonic-stacked harmony.
+- The renamed function labels ("Home / Adventure / Tension / Stranger /
+  Spice") and the crude scale-degree → function mapping are unchanged;
+  they are a deliberate simplification, not a bug.
+
+---
+
+## Deferred (not a fix — its own feature)
 - URL-hash progression sharing (a "share this progression" link).
