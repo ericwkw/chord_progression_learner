@@ -1,7 +1,7 @@
 # ChordLab — Fix & Test Plan
 
 **Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#15
-followed up on music-theory accuracy, depth and portability (September 2026). All 100 tests
+followed up on music-theory accuracy, depth and portability (September 2026). All 105 tests
 pass; `typecheck` and `build` are clean; CI runs on every PR. The one
 deliberately deferred item is URL-hash progression sharing (a separate
 feature, not a fix).
@@ -21,6 +21,7 @@ feature, not a fix).
 | #11 | 5 | Recognise augmented / altered chord qualities (harmonic & melodic minor) |
 | #12 | 5 | Generate secondary dominants (V7/ii, V7/V, …) in the Jazz style |
 | #13 | 6 | Real transition analysis — cadences, root motion, borrowing (`src/engine/harmony.ts`) |
+| #14 | 6 | CAGED voicings — C/G/D shapes for triads, not just E/A barre |
 | #15 | 7 | AI Analyst → provider-agnostic OpenAI-compatible endpoint (OpenRouter default); drop the `@google/genai` SDK |
 
 ## Verification gate (run for every change)
