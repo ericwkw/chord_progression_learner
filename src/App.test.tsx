@@ -2,13 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-const mockGenerateContent = vi.fn().mockResolvedValue({ text: 'Mock progression analysis.' });
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: class {
-    models = { generateContent: mockGenerateContent };
-  },
-}));
-
 import App from '../index';
 
 const dismissGuide = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -26,6 +19,8 @@ const paletteButton = (name: string) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   localStorage.clear();
 });
 
@@ -65,6 +60,12 @@ describe('App — smoke', () => {
   });
 
   it('reveals the AI Analyst panel once the progression has 2+ chords and returns feedback', async () => {
+    vi.stubEnv('API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'Mock progression analysis.' } }] }),
+    }));
+
     const user = userEvent.setup();
     render(<App />);
     await dismissGuide(user);
