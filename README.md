@@ -52,9 +52,33 @@ We welcome contributions from developers and musicians!
 3.  **Export**: Add MIDI export functionality for the progression timeline.
 
 ### Getting Started
-1.  Clone the repo.
-2.  Open `index.html` in a browser (or serve via a local server like Vite/Live Server).
-3.  Set your `API_KEY` in the environment if you want to test the AI features.
+
+**Prerequisites:** Node.js 18+
+
+```bash
+npm install
+cp .env.example .env.local   # optional: add your GEMINI_API_KEY for the AI Analyst
+npm run dev                   # http://localhost:3000
+```
+
+Other scripts:
+
+| Command | Purpose |
+| --- | --- |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run typecheck` | Type-check with `tsc --noEmit` |
+
+The app runs fully without an API key; only the **AI Analyst** panel needs `GEMINI_API_KEY`
+(get one at <https://aistudio.google.com/apikey>).
+
+### Project layout
+
+| Path | Contents |
+| --- | --- |
+| `index.tsx` | React components + app bootstrap |
+| `src/engine/theory.ts` | Pure music-theory engine — scales, chord generation, voicings, inversions |
+| `src/engine/audio.ts` | Web Audio synthesis — frequencies, strum playback |
 
 ---
 
