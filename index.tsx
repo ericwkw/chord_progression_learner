@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Play, Volume2, ArrowRight, X, Music, Info, Sparkles, Settings, RefreshCw, ChevronRight, ChevronLeft, HelpCircle, BookOpen, Layers } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { analyzeProgression } from './src/services/ai';
 import { strumChord } from './src/engine/audio';
 import {
   ALL_NOTES,
@@ -352,17 +352,13 @@ export default function App() {
     if (progression.length < 2) return;
     setIsAiLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-      const prompt = `Analyze this chord progression in the key of ${root} ${scaleType} for an intermediate guitar student.
-      Progression: ${progression.map(c => c.name).join(' -> ')}.
-      Musical Style: ${style}.
-      Explain the functional harmony and voice leading. Brief & concise.`;
-      
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt
+      const feedback = await analyzeProgression({
+        root,
+        scaleType,
+        style,
+        chordNames: progression.map(c => c.name),
       });
-      setAiFeedback(response.text || "No feedback generated.");
+      setAiFeedback(feedback);
     } catch (e) {
       console.error(e);
       setAiFeedback("Oops, my music brain is offline right now! But your ears are the best judge. 👂🎸");
