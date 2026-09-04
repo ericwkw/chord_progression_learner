@@ -88,15 +88,15 @@ Vite 6 is already a dep; add `vitest` + `@testing-library/react` + `jsdom` as de
 - Stub `window.AudioContext` with a spy factory. Assert `strumChord` creates one oscillator+gain per note, connects to destination, staggers `start` times by ~0.035 s, and skips notes whose frequency is 0 (after 2.8).
 - `getFrequency('A', 4) ≈ 440` (within 0.5 Hz); unknown note → 0.
 
-### 3.3 Component smoke tests — `src/App.test.tsx`
+### 3.3 Component smoke tests — `src/App.test.tsx`  — DONE (PR4)
 - Renders without throwing; guide modal visible on first mount, dismissable.
 - Click a diatonic chord button → chip appears in Progression; `Fretboard` leaves the empty state.
 - Add 2 chords → transition badge renders; AI panel appears (button disabled state while loading — mock `@google/genai`).
 - Change root/scale/style → progression clears (current behavior) and palette updates.
 - Voicing next/prev cycles and wraps.
 
-### 3.4 CI
-Add `.github/workflows/ci.yml`: `npm ci` → `npm run typecheck` → `npm run test` → `npm run build`, on push + PR.
+### 3.4 CI  — DONE (PR4)
+`.github/workflows/ci.yml`: `npm ci` → `npm run typecheck` → `npm run test` → `npm run build`, on push to main + every PR.
 
 ---
 
