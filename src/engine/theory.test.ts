@@ -250,6 +250,52 @@ describe('getNoteAtFret', () => {
   });
 });
 
+describe('CAGED voicings', () => {
+  const OPEN = [4, 9, 2, 7, 11, 4];
+  const pcSet = (frets: number[]) =>
+    [...new Set(frets.map((f, s) => (f === -1 ? -1 : (OPEN[s] + f) % 12)).filter(x => x !== -1))].sort();
+
+  it('a plain major triad offers all five CAGED shapes', () => {
+    const c = team(generateKeyChords('C', 'Major', 'Pop'))[0];
+    const shapes = c.voicings.map(v => v.name);
+    expect(shapes.filter(n => /Shape$/.test(n))).toEqual(['C Shape', 'G Shape', 'D Shape']);
+    // plus the E-shape and A-shape barre positions already generated
+    expect(c.voicings.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('the C Shape for C major is the open-C chord', () => {
+    const c = team(generateKeyChords('C', 'Major', 'Pop'))[0];
+    expect(c.voicings.find(v => v.name === 'C Shape')!.frets).toEqual([-1, 3, 2, 0, 1, 0]);
+  });
+
+  it('a plain minor triad offers the Dm shape', () => {
+    const am = team(generateKeyChords('A', 'Natural Minor', 'Pop'))[0];
+    expect(am.voicings.some(v => v.name === 'Dm Shape')).toBe(true);
+  });
+
+  it('every CAGED voicing spells the same triad as the barre chord, on ≥4 strings, in range', () => {
+    for (const root of ROOT_OPTIONS) {
+      for (const scale of ['Major', 'Natural Minor']) {
+        for (const c of team(generateKeyChords(root, scale, 'Pop'))) {
+          const want = JSON.stringify(pcSet(c.voicings[0].frets));
+          for (const v of c.voicings.filter(x => /Shape$/.test(x.name))) {
+            const ctx = `${root} ${scale} ${c.name} ${v.name}`;
+            expect(JSON.stringify(pcSet(v.frets)), ctx).toBe(want);
+            expect(v.frets.filter(f => f !== -1).length, ctx).toBeGreaterThanOrEqual(4);
+            for (const f of v.frets) expect(f, ctx).toBeGreaterThanOrEqual(-1);
+            expect(Math.max(...v.frets), ctx).toBeLessThanOrEqual(15);
+          }
+        }
+      }
+    }
+  });
+
+  it('extended / 7th chords do NOT get CAGED shapes (only E/A + inversions)', () => {
+    const cmaj7 = team(generateKeyChords('C', 'Major', 'Jazz'))[0];
+    expect(cmaj7.voicings.some(v => /Shape$/.test(v.name))).toBe(false);
+  });
+});
+
 describe('inversions / slash chords (current behavior)', () => {
   it('C major produces a /E and a /G voicing', () => {
     const cMajor = team(generateKeyChords('C', 'Major', 'Pop'))[0];

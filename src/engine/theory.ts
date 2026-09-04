@@ -109,6 +109,22 @@ const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
     'dim7': { eShape: [0, 1, 0, 0, -1, -1], aShape: [-1, 0, 1, 2, 1, -1] }
 };
 
+// Movable CAGED positions for plain major/minor triads, in addition to the
+// E-shape and A-shape barre chords generated above. Each entry gives the
+// string the root sits on (0 = low E) and per-string fret offsets relative to
+// that root's fret; `null` = muted string. Positions that would need a
+// negative fret, go past fret 15, or span more than 5 frets are skipped.
+const CAGED_SHAPES: Record<'' | 'm', { label: string; rootString: number; offsets: (number | null)[] }[]> = {
+    '': [
+        { label: 'C Shape', rootString: 1, offsets: [null, 0, -1, -3, -2, -3] }, // open C: x 3 2 0 1 0
+        { label: 'G Shape', rootString: 0, offsets: [0, -1, -3, -3, -3, 0] },    // open G: 3 2 0 0 0 3
+        { label: 'D Shape', rootString: 2, offsets: [null, null, 0, 2, 3, 2] },  // open D: x x 0 2 3 2
+    ],
+    'm': [
+        { label: 'Dm Shape', rootString: 2, offsets: [null, null, 0, 2, 3, 1] }, // open Dm: x x 0 2 3 1
+    ],
+};
+
 // Inversion Shapes: offsets relative to the Bass Note Fret
 const INVERSION_SHAPES: Record<string, number[]> = {
     // MAJOR OVER 3rd (e.g. G/B, C/E)
@@ -194,6 +210,30 @@ const lowestFret = (frets: number[]): number => {
 // Helper to shift a shape to a specific root fret
 const createVoicingFromShape = (shape: number[], rootFret: number): number[] => {
     return shape.map(f => (f === -1 ? -1 : f + rootFret));
+};
+
+const OPEN_STRING_PC = GUITAR_TUNING.map(t => noteToPc(t.note)); // [4, 9, 2, 7, 11, 4]
+
+// Place a movable CAGED shape for a given root pitch class. Returns null when
+// no octave keeps every fret in [0, 15] within a 5-fret span.
+const movableVoicing = (
+    rootPc: number,
+    rootString: number,
+    offsets: (number | null)[],
+    label: string,
+): Voicing | null => {
+    const base = mod12(rootPc - OPEN_STRING_PC[rootString]);
+    for (const rootFret of [base, base + 12]) {
+        const frets = offsets.map(o => (o === null ? -1 : rootFret + o));
+        // A fretted string that lands below the nut means this octave doesn't fit.
+        if (frets.some((f, s) => offsets[s] !== null && f < 0)) continue;
+        const played = frets.filter(f => f !== -1);
+        const lo = Math.min(...played);
+        const hi = Math.max(...played);
+        if (hi > 15 || hi - lo > 5) continue;
+        return { name: label, frets, baseFret: lo };
+    }
+    return null;
 };
 
 const createInversionVoicing = (shape: number[], bassFret: number): number[] | null => {
@@ -337,6 +377,14 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
             frets: aFrets,
             baseFret: lowestFret(aFrets)
         });
+
+        // --- REMAINING CAGED POSITIONS (plain major/minor triads) ---
+        if (q === '' || q === 'm') {
+            for (const shape of CAGED_SHAPES[q]) {
+                const v = movableVoicing(nPc, shape.rootString, shape.offsets, shape.label);
+                if (v) voicings.push(v);
+            }
+        }
 
         // --- INVERSIONS ---
         // 1. First Inversion (Bass = 3rd)

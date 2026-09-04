@@ -1,10 +1,10 @@
 # ChordLab — Fix & Test Plan
 
-**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#12
-followed up on music-theory accuracy (September 2026). All 97 tests
-pass; `typecheck` and `build` are clean; CI runs on every PR. The one
-deliberately deferred item is URL-hash progression sharing (a separate
-feature, not a fix).
+**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#14
+followed up on music-theory accuracy and depth (September 2026). All 102
+tests pass; `typecheck` and `build` are clean; CI runs on every PR. The
+one deliberately deferred item is URL-hash progression sharing (a
+separate feature, not a fix).
 
 | PR | Phase | Summary |
 | --- | --- | --- |
@@ -21,6 +21,7 @@ feature, not a fix).
 | #11 | 5 | Recognise augmented / altered chord qualities (harmonic & melodic minor) |
 | #12 | 5 | Generate secondary dominants (V7/ii, V7/V, …) in the Jazz style |
 | #13 | 6 | Real transition analysis — cadences, root motion, borrowing (`src/engine/harmony.ts`) |
+| #14 | 6 | CAGED voicings — C/G/D shapes for triads, not just E/A barre |
 
 ## Verification gate (run for every change)
 
@@ -202,10 +203,9 @@ didn't; the only non-diatonic chords were modal-interchange borrowings.
 
 ---
 
-## Phase 6 — README claims that were oversold — DONE (PR #13)
+## Phase 6 — README claims that were oversold — DONE (PRs #13–#14)
 
-A review of the README against the code flagged three soft spots. #13
-addresses the biggest one.
+A review of the README against the code flagged three soft spots.
 
 ### Transition analysis (PR #13)
 The README said transition analysis "detects resolution, tension, and
@@ -228,14 +228,33 @@ functional-role pairs living inside `index.tsx`.
   borrowing, tonicisation, suspension and recolour cases, plus a sweep
   asserting every pair yields a non-empty `detail`.
 
-### Still oversold (smaller, not yet done)
-- **"CAGED system logic"** for voicings — really just E-shape and
-  A-shape barre transposition (2 of the 5 CAGED shapes) plus a few
-  hand-authored inversion tables.
-- **Inversions / slash chords** — generated for plain major/minor
-  triads only, not 7th chords or extensions.
+### CAGED voicings (PR #14)
+The voicing engine emitted only the E-shape and A-shape barre chords —
+2 of the 5 CAGED shapes — yet the README said "CAGED system logic".
+
+- `CAGED_SHAPES` table + `movableVoicing()` helper: for a plain major or
+  minor triad, also emit the **C, G and D** shapes (and **Dm**), each as
+  per-string offsets from the root's fret on its home string. A position
+  is skipped for a given root when it would need a fret below the nut,
+  past fret 15, or a span over 5 frets.
+- C major now cycles E-shape → A-shape → **C Shape** (the open-C grip) →
+  **G Shape** → **D Shape** → inversions.
+- 7th chords and extensions keep the E/A barre forms only.
+- `theory.test.ts`: the five shapes are present for a major triad; the
+  C-shape for C is literally `x 3 2 0 1 0`; and a sweep over every key ×
+  {major, minor} asserting each CAGED voicing spells the same triad as
+  the barre chord, on ≥ 4 strings, within `[0, 15]`.
+- README + guide-modal copy updated; the README's inversions line now
+  says "for triads" rather than implying 7th-chord inversions.
+
+### Still a limitation (documented, not a bug)
+- Inversions / slash chords are generated for plain major/minor triads
+  only. Drop-2 / drop-3 inversions for 7th chords would be a real
+  jazz-voicing feature, not a small fix; the README no longer implies
+  they exist.
 
 ---
 
 ## Deferred (not a fix — its own feature)
 - URL-hash progression sharing (a "share this progression" link).
+- Drop-2 / drop-3 inversions for 7th chords.
