@@ -33,13 +33,13 @@ The theory engine is pure and deterministic but un-importable because `index.tsx
 
 ## Phase 2 — Fix confirmed bugs
 
-### 2.1 `createVoicingFromShape` octave-fold mangles high-root voicings  — HIGH
-`index.tsx:201`. The `if (finalFret > 12 ...)` branch subtracts 12 from **individual** notes, not the whole shape, so a barre voicing for roots like A#/B gets one note dropped an octave while the rest stay high → dissonant / unplayable shape.
-**Fix:** decide octave placement once for the whole shape (shift the entire shape down 12 only if every fretted note > 12), or just drop the optimization and clamp `rootFret` choice instead. Add test.
+### 2.1 `createVoicingFromShape` octave-fold — NOT A BUG (dead code)
+`src/engine/theory.ts` `createVoicingFromShape`. The `if (finalFret > 12 && shape[0] !== -1 && (shape[0] + rootFret) > 12)` branch can never run: every `eShape` in `CHORD_SHAPES` has `shape[0]` of `0` or `-1`, so `shape[0] + rootFret > 12` requires `rootFret > 12`, and `rootFret` is `% 12`. PR2 tests confirmed high-root voicings (A#, B) are already contiguous.
+**Action:** delete the dead branch for clarity; no behavior change. (Covered by the existing voicing-integrity test.)
 
-### 2.2 Inversions silently dropped near open position — HIGH
-`createInversionVoicing` (`index.tsx:213`) returns `null` if any fret goes negative, so common keys lose their slash chords — e.g. key of C never generates **C/E** because E sits at fret 0 on the low E string and the hand-authored `Maj_3_E` offsets `[0,-1,-2,0,1,-1]` push below the nut.
-**Fix:** when the computed bass fret is 0–2, add 12 (use the octave-up position) before applying offsets; only return `null` if still invalid above the nut. Add tests asserting C major yields a `/E` and a `/G` voicing.
+### 2.2 First-inversion (E-string) dropped when the 3rd is at the nut — LOW
+`createInversionVoicing` returns `null` on any negative fret. For the key of C the `Maj_3_E` shape `[0,-1,-2,0,1,-1]` at bass-fret 0 goes negative and is skipped. C major **still** gets `/E` (via the A-string shape) and `/G`, so slash chords aren't lost — only the low-E-string first inversion is missing in keys where the 3rd lands on frets 0–1.
+**Fix:** when the computed bass fret is 0–1, use the octave-up position (`+12`) before applying offsets; return `null` only if still invalid. Test: `2.4` in `theory.test.ts` (currently `.fails`).
 
 ### 2.3 `baseFret` swallows legit fret 0 — MEDIUM
 `Math.min(...frets.filter(f => f !== -1)) || 1` (`index.tsx:315`, :326, :342, :354, :368, :434). An open-position voicing whose lowest note is fret 0 gets `baseFret = 1`. Combined with `Fretboard` `startFret = voicing.baseFret || 1`, open shapes render shifted.
@@ -77,9 +77,9 @@ Vite 6 is already a dep; add `vitest` + `@testing-library/react` + `jsdom` as de
 - `generateKeyChords('C','Major','Blues')`: I/IV/V are dominant 7ths (C7, F7, G7).
 - Every generated voicing: 6 entries, each `-1` or `0..~15`, no negative-non-`-1`, no `NaN`/`Infinity` in `frets` or `baseFret` — loop all 12 roots × all 9 scales × 3 styles.
 - `getNoteAtFret`: open strings → E2 A2 D3 G3 B3 E4; E-string fret 12 → E3; octave rollover at C not at the open note.
-- Regression for 2.1: high roots (A#, B) produce a contiguous playable shape (max fret − min fret ≤ 4 for barre templates).
-- Regression for 2.2: C major yields `/E` and `/G` voicings; A minor yields `/C`.
-- Regression for 2.3/2.4: `baseFret` is always a finite number ≥ 0.
+- `baseFret` is always a finite number ≥ 0 across all keys/scales/styles (done — voicing-integrity test).
+- Slash chords: C major yields `/E` and `/G`; A minor yields `/C` (done).
+- `.fails` regression specs for 2.3 (open baseFret === 0), 2.4 (E-string first inversion in key of C), 2.7 (° roman marker) — flip to passing in PR3.
 - `getQualityFromIntervals`: the six seventh cases + three triad fallbacks.
 
 ### 3.2 Audio tests — `src/engine/audio.test.ts`
