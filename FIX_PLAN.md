@@ -103,7 +103,7 @@ Vite 6 is already a dep; add `vitest` + `@testing-library/react` + `jsdom` as de
 ## Phase 4 — Nice-to-have (separate PRs, not blocking)
 
 - ~~Code-split: dynamic-`import()` the `@google/genai` SDK so it's not in the main 520 kB bundle (only loaded when "Analyze" is clicked).~~ **DONE (PR6)** — moved to `src/services/ai.ts` with a dynamic import; main bundle 520 kB → 224 kB (gzip 128 → 70), SDK now in a lazy chunk.
-- `ErrorBoundary` around `<App/>` so an engine throw shows a message, not a white screen.
+- ~~`ErrorBoundary` around `<App/>` so an engine throw shows a message, not a white screen.~~ **DONE (PR7)** — `src/components/ErrorBoundary.tsx` wraps the root render; also added the missing `@types/react` / `@types/react-dom` dev deps (the project had none).
 - Move Tailwind off the CDN `<script>` to a real build dependency for production.
 - Consider persisting a progression to `localStorage` / URL hash.
 
