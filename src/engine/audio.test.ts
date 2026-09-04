@@ -86,4 +86,13 @@ describe('strumChord', () => {
     strumChord([{ note: 'A', octave: 4 }]);
     expect(oscillators[0].frequency.value).toBeCloseTo(440, 0);
   });
+
+  it('2.8 — skips notes with an unresolvable frequency (no dead oscillator)', () => {
+    strumChord([
+      { note: 'C', octave: 3 },
+      { note: '?', octave: 3 },
+      { note: 'G', octave: 3 },
+    ]);
+    expect(oscillators).toHaveLength(2);
+  });
 });

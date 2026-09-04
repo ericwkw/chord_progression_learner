@@ -14,6 +14,10 @@ import {
   type Voicing,
 } from './src/engine/theory';
 
+// Monotonic id source for chords added to the progression — unique even when
+// several chords are added within the same millisecond.
+let chordSeq = 0;
+const nextChordSeq = () => ++chordSeq;
 
 // --- COMPONENTS ---
 
@@ -124,7 +128,7 @@ const Fretboard = ({ chord, showScale, scaleNotes }: { chord: Chord | null, show
   if (!voicing) return <div className="h-48 w-full bg-slate-900/50 rounded-xl flex items-center justify-center text-red-400">Voicing data missing</div>;
 
   const fretsToShow = 5;
-  const startFret = voicing.baseFret || 1;
+  const startFret = voicing.baseFret ?? 1;
   const endFret = startFret + fretsToShow;
 
   const renderFrets = () => {
@@ -270,7 +274,7 @@ export default function App() {
 
   const addChord = (chordTemplate: Chord) => {
     // Clone to allow independent voicing changes
-    const newChord = { ...chordTemplate, id: `${chordTemplate.id}-${Date.now()}` };
+    const newChord = { ...chordTemplate, id: `${chordTemplate.id}-${nextChordSeq()}` };
     setProgression([...progression, newChord]);
     setSelectedChord(newChord);
     playSound(newChord);
@@ -297,15 +301,15 @@ export default function App() {
     const idx = progression.findIndex(c => c.id === selectedChord.id);
     if (idx === -1) return;
 
-    const newProg = [...progression];
-    const currentIdx = newProg[idx].activeVoicingIdx;
-    const len = newProg[idx].voicings.length;
-    const newVoicingIdx = (currentIdx + delta + len) % len;
-    
-    newProg[idx].activeVoicingIdx = newVoicingIdx;
+    const current = progression[idx];
+    const len = current.voicings.length;
+    const newVoicingIdx = (current.activeVoicingIdx + delta + len) % len;
+
+    const updated = { ...current, activeVoicingIdx: newVoicingIdx };
+    const newProg = progression.map((c, i) => (i === idx ? updated : c));
     setProgression(newProg);
-    setSelectedChord(newProg[idx]);
-    playSound(newProg[idx]);
+    setSelectedChord(updated);
+    playSound(updated);
   };
 
   const getTransitionInfo = (prev: Chord, curr: Chord): Transition => {
