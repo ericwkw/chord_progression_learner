@@ -285,6 +285,14 @@ sibling *Drum Sequencer* project uses.
   `autoPort`.
 - README + Tech Stack updated.
 
+**Verified live** on `chord-progression-learner.vercel.app` with the key
+set in Vercel: a Dm → G → C progression returned a correct GLM 5.2
+analysis (named the ii–V–I, the pre-dominant/dominant/tonic functions,
+and the F→E and B→C voice-leading). Confirms the browser→OpenRouter CORS
+path, the free `z-ai/glm-5.2:free` model (checked against OpenRouter's
+live model list), and the deployed key wiring. No key locally → the
+panel still shows its "music brain offline" fallback.
+
 ---
 
 ## Deferred (not a fix — its own feature)
