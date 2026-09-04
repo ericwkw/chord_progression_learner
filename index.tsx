@@ -102,8 +102,12 @@ const GuideModal = ({ onClose }: { onClose: () => void }) => (
                 The "Jazz/Lo-Fi" sound. It feels dreamy, soft, and nostalgic.
               </div>
               <div>
-                <strong className="text-white block mb-1">Slash Chords (e.g., C/E):</strong> 
+                <strong className="text-white block mb-1">Slash Chords (e.g., C/E):</strong>
                 The chord is C, but the bass plays E. It helps connect chords smoothly, like walking down a ramp instead of taking stairs.
+              </div>
+              <div>
+                <strong className="text-white block mb-1">CAGED Shapes:</strong>
+                The same chord, five ways up the neck. Cycle voicings with the arrows under the fretboard — "C Shape", "G Shape", etc. name the open-chord grip each one is based on.
               </div>
             </div>
           </div>

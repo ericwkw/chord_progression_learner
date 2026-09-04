@@ -18,8 +18,8 @@ The app does not use hardcoded databases. Instead, it calculates chords in real-
     *   **Blues**: Enforces Dominant 7th cycles (I7, IV7, V7).
 
 ### 2. **Dynamic Fretboard Visualization**
-*   **Voicing Algorithms**: Automatically finds playable guitar voicings (CAGED system logic) based on the chord's notes.
-*   **Inversions & Slash Chords**: Generates First and Second inversions (e.g., C/E, Am/C) to facilitate voice leading.
+*   **Voicing Algorithms**: Places each chord across the neck — for plain triads, all five movable CAGED shapes (C, A, G, E, D); for 7ths and extensions, movable E- and A-root barre forms.
+*   **Inversions & Slash Chords**: For triads, generates first and second inversions (e.g. C/E, C/G, Am/C) to smooth the bass line.
 *   **Interval Mapping**: Visualizes how chord tones map to the scale.
 
 ### 3. **Functional Harmony Analysis**
