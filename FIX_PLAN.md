@@ -1,10 +1,10 @@
 # ChordLab — Fix & Test Plan
 
-**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#14
-followed up on music-theory accuracy and depth (September 2026). All 102
-tests pass; `typecheck` and `build` are clean; CI runs on every PR. The
-one deliberately deferred item is URL-hash progression sharing (a
-separate feature, not a fix).
+**Status: complete.** Phases 0–4 landed across PRs #1–#9; PRs #10–#15
+followed up on music-theory accuracy, depth and portability (September 2026). All 100 tests
+pass; `typecheck` and `build` are clean; CI runs on every PR. The one
+deliberately deferred item is URL-hash progression sharing (a separate
+feature, not a fix).
 
 | PR | Phase | Summary |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ separate feature, not a fix).
 | #11 | 5 | Recognise augmented / altered chord qualities (harmonic & melodic minor) |
 | #12 | 5 | Generate secondary dominants (V7/ii, V7/V, …) in the Jazz style |
 | #13 | 6 | Real transition analysis — cadences, root motion, borrowing (`src/engine/harmony.ts`) |
-| #14 | 6 | CAGED voicings — C/G/D shapes for triads, not just E/A barre |
+| #15 | 7 | AI Analyst → provider-agnostic OpenAI-compatible endpoint (OpenRouter default); drop the `@google/genai` SDK |
 
 ## Verification gate (run for every change)
 
@@ -252,6 +252,37 @@ The voicing engine emitted only the E-shape and A-shape barre chords —
   only. Drop-2 / drop-3 inversions for 7th chords would be a real
   jazz-voicing feature, not a small fix; the README no longer implies
   they exist.
+
+---
+
+## Phase 7 — AI provider portability — DONE (PR #15)
+
+The AI Analyst was hard-wired to Google's `@google/genai` SDK and a
+`GEMINI_API_KEY`. Switched it to the same provider-agnostic setup the
+sibling *Drum Sequencer* project uses.
+
+- `src/services/ai.ts` calls any **OpenAI-compatible `/chat/completions`
+  endpoint** with `fetch` — no SDK. Config-driven: `LLM_BASE_URL` /
+  `LLM_MODEL` / `API_KEY` env vars, defaulting to **OpenRouter + a free
+  model** so a free key works out of the box. Reasoning-model answers
+  are read from `content` or `reasoning`.
+- `IS_OPENROUTER` is detected from the URL's *hostname* (the copied
+  `/(^|\.)openrouter\.ai/` regex never matched `https://openrouter.ai/…`
+  because of the leading `//`), so the OpenRouter attribution headers
+  are actually sent — and skipped for other providers to avoid a CORS
+  preflight rejection.
+- `vite.config.ts` `define` maps `API_KEY | OPENROUTER_API_KEY |
+  GEMINI_API_KEY | VITE_API_KEY` → `process.env.API_KEY`, plus
+  `LLM_BASE_URL` / `LLM_MODEL`. `.env.example` rewritten.
+- `@google/genai` removed from `package.json`. The lazy `web-*.js` chunk
+  (267 kB) from PR #6 is gone entirely; total JS ~490 kB → ~231 kB.
+- `src/services/ai.test.ts` rewritten against a `fetch` stub (endpoint,
+  headers, request body, content vs reasoning, HTTP-error, no-key).
+  App smoke test stubs `fetch` instead of mocking the SDK.
+- `vite.config.ts` `server.port` falls back to `process.env.PORT` so the
+  preview server can pick a free port; `.claude/launch.json` gets
+  `autoPort`.
+- README + Tech Stack updated.
 
 ---
 

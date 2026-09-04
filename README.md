@@ -25,7 +25,7 @@ The app does not use hardcoded databases. Instead, it calculates chords in real-
 ### 3. **Functional Harmony Analysis**
 *   **Color-Coded Functions**: Instantly identify Tonic, Subdominant, and Dominant functions.
 *   **Transition Analysis**: Names the harmonic event between adjacent chords — authentic / plagal / deceptive / half cadences, circle-of-fifths and stepwise root motion, tonicisation by a secondary dominant, and modal-interchange borrowing — each with a one-line explanation.
-*   **AI Integration**: Uses Google's **Gemini 2.5 Flash** model to provide natural language explanations of your progression's voice leading and emotional character.
+*   **AI Integration**: Sends your progression to any **OpenAI-compatible chat model** (OpenRouter's free tier by default) for a natural-language explanation of its functional harmony and voice leading.
 
 ### 4. **Browser-Native Audio**
 *   **Web Audio API**: Synthesizes guitar tones directly in the browser using oscillators and gain nodes. No external sample libraries required.
@@ -37,7 +37,7 @@ The app does not use hardcoded databases. Instead, it calculates chords in real-
 *   **Frontend**: React 19
 *   **Styling**: Tailwind CSS v4 (compiled at build time via `@tailwindcss/vite`)
 *   **Audio**: Web Audio API (Oscillators/Gain)
-*   **AI**: Google GenAI SDK (`@google/genai`)
+*   **AI**: any OpenAI-compatible chat API (OpenRouter by default), called with `fetch` — no SDK
 *   **Icons**: Lucide React
 
 ---
@@ -57,7 +57,7 @@ We welcome contributions from developers and musicians!
 
 ```bash
 npm install
-cp .env.example .env.local   # optional: add your GEMINI_API_KEY for the AI Analyst
+cp .env.example .env.local   # optional: add a free API_KEY for the AI Analyst
 npm run dev                   # http://localhost:3000
 ```
 
@@ -69,8 +69,10 @@ Other scripts:
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | Type-check with `tsc --noEmit` |
 
-The app runs fully without an API key; only the **AI Analyst** panel needs `GEMINI_API_KEY`
-(get one at <https://aistudio.google.com/apikey>).
+The app runs fully without an API key; only the **AI Analyst** panel needs `API_KEY`.
+A free [OpenRouter key](https://openrouter.ai/keys) works out of the box; set
+`LLM_BASE_URL` / `LLM_MODEL` to use a different provider (e.g. Gemini's
+OpenAI-compatible endpoint) with no code change — see `.env.example`.
 
 ### Project layout
 
@@ -81,7 +83,7 @@ The app runs fully without an API key; only the **AI Analyst** panel needs `GEMI
 | `src/engine/theory.ts` | Pure music-theory engine — scales, chord generation, voicings, inversions, secondary dominants |
 | `src/engine/harmony.ts` | Transition analysis — names the cadence / root-motion / borrowing between two chords |
 | `src/engine/audio.ts` | Web Audio synthesis — equal-tempered frequencies, strum playback |
-| `src/services/ai.ts` | Gemini progression analysis (dynamically imported) |
+| `src/services/ai.ts` | Progression analysis via an OpenAI-compatible chat endpoint (config-driven provider) |
 | `src/services/persistence.ts` | localStorage save/restore for the working progression |
 | `src/components/ErrorBoundary.tsx` | Top-level render-error fallback |
 
