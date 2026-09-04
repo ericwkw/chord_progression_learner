@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ALL_NOTES,
+  ROOT_OPTIONS,
   SCALE_PATTERNS,
   generateKeyChords,
   getNoteAtFret,
@@ -9,6 +9,55 @@ import {
 
 const team = (chords: Chord[]) => chords.filter(c => c.category === 'Team');
 const names = (chords: Chord[]) => chords.map(c => c.name);
+
+describe('generateKeyChords — enharmonic spelling', () => {
+  it('F major uses Bb, not A#', () => {
+    const t = team(generateKeyChords('F', 'Major', 'Pop'));
+    expect(t.map(c => c.root)).toEqual(['F', 'G', 'A', 'Bb', 'C', 'D', 'E']);
+    expect(t.map(c => c.name)).toEqual(['F', 'Gm', 'Am', 'Bb', 'C', 'Dm', 'Edim']);
+  });
+
+  it('Eb major spells all flats (Eb F G Ab Bb C D)', () => {
+    expect(team(generateKeyChords('Eb', 'Major', 'Pop')).map(c => c.root)).toEqual([
+      'Eb', 'F', 'G', 'Ab', 'Bb', 'C', 'D',
+    ]);
+  });
+
+  it('B major spells sharps including A# (B C# D# E F# G# A#)', () => {
+    expect(team(generateKeyChords('B', 'Major', 'Pop')).map(c => c.root)).toEqual([
+      'B', 'C#', 'D#', 'E', 'F#', 'G#', 'A#',
+    ]);
+  });
+
+  it('D natural minor uses Bb (D E F G A Bb C)', () => {
+    expect(team(generateKeyChords('D', 'Natural Minor', 'Pop')).map(c => c.root)).toEqual([
+      'D', 'E', 'F', 'G', 'A', 'Bb', 'C',
+    ]);
+  });
+
+  it('every diatonic scale spells one of each letter A–G', () => {
+    for (const root of ROOT_OPTIONS) {
+      for (const scale of Object.keys(SCALE_PATTERNS)) {
+        const letters = team(generateKeyChords(root, scale, 'Pop')).map(c => c.root[0]);
+        expect(new Set(letters).size, `${root} ${scale}`).toBe(7);
+      }
+    }
+  });
+
+  it('rootPc is spelling-independent', () => {
+    const f = team(generateKeyChords('F', 'Major', 'Pop'));
+    expect(f[3].root).toBe('Bb');
+    expect(f[3].rootPc).toBe(10); // A#/Bb
+  });
+
+  it('borrowed chords in F are spelled flat (bVII = Eb, bVI = Db)', () => {
+    const wild = generateKeyChords('F', 'Major', 'Pop').filter(c => c.category === 'Wildcard');
+    const byRoman = Object.fromEntries(wild.map(c => [c.roman, c.root]));
+    expect(byRoman['bVII']).toBe('Eb');
+    expect(byRoman['bVI']).toBe('Db');
+    expect(byRoman['bIII']).toBe('Ab');
+  });
+});
 
 describe('generateKeyChords — diatonic triads', () => {
   it('C Major / Pop → C Dm Em F G Am Bdim', () => {
@@ -65,7 +114,7 @@ describe('voicing integrity — every key/scale/style', () => {
   const styles = ['Pop', 'Jazz', 'Blues'];
 
   it('all voicings have 6 finite, in-range frets and a finite baseFret', () => {
-    for (const root of ALL_NOTES) {
+    for (const root of ROOT_OPTIONS) {
       for (const scale of Object.keys(SCALE_PATTERNS)) {
         for (const style of styles) {
           const chords = generateKeyChords(root, scale, style);
@@ -90,23 +139,23 @@ describe('voicing integrity — every key/scale/style', () => {
 });
 
 describe('getNoteAtFret', () => {
-  it('open strings are standard tuning E2 A2 D3 G3 B3 E4', () => {
+  it('open strings are standard tuning E2 A2 D3 G3 B3 E4 (as pitch classes)', () => {
     expect([0, 1, 2, 3, 4, 5].map(s => getNoteAtFret(s, 0))).toEqual([
-      { note: 'E', octave: 2 },
-      { note: 'A', octave: 2 },
-      { note: 'D', octave: 3 },
-      { note: 'G', octave: 3 },
-      { note: 'B', octave: 3 },
-      { note: 'E', octave: 4 },
+      { pc: 4, octave: 2 },  // E
+      { pc: 9, octave: 2 },  // A
+      { pc: 2, octave: 3 },  // D
+      { pc: 7, octave: 3 },  // G
+      { pc: 11, octave: 3 }, // B
+      { pc: 4, octave: 4 },  // E
     ]);
   });
 
   it('low E string, 12th fret → E3 (octave up from open)', () => {
-    expect(getNoteAtFret(0, 12)).toEqual({ note: 'E', octave: 3 });
+    expect(getNoteAtFret(0, 12)).toEqual({ pc: 4, octave: 3 });
   });
 
   it('low E string, 8th fret → C3 (octave rolls over at C, not at the open note)', () => {
-    expect(getNoteAtFret(0, 8)).toEqual({ note: 'C', octave: 3 });
+    expect(getNoteAtFret(0, 8)).toEqual({ pc: 0, octave: 3 });
   });
 
   it('muted string → null', () => {

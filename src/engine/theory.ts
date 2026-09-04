@@ -1,6 +1,27 @@
 // --- MUSIC THEORY ENGINE ---
 
-export const ALL_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+import {
+  LETTERS,
+  noteToPc,
+  spellWithLetter,
+  spellPlain,
+  spellScale,
+  spellDegreeAtPc,
+  degreeOfRoman,
+  isFlatKey,
+  type Letter,
+} from './notes';
+
+// Chromatic pitch classes (sharp spelling). Kept for callers that only need a
+// 12-slot index; note *display* names come from the key-aware speller.
+export const PITCH_CLASS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+// Backwards-compatible alias.
+export const ALL_NOTES = PITCH_CLASS;
+
+// Keys offered in the root picker: chromatic order, conventional spelling
+// (flats on the flat side, F# rather than Gb).
+export const ROOT_OPTIONS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
 export const SCALE_PATTERNS: Record<string, number[]> = {
   'Major': [0, 2, 4, 5, 7, 9, 11],
@@ -21,6 +42,11 @@ export const MUSIC_STYLES = [
 ];
 
 const ROMAN_NUMERALS = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'];
+
+const mod12 = (n: number) => ((n % 12) + 12) % 12;
+
+// Semitone value of a note used as an open guitar string / reference.
+const pc = (name: string) => noteToPc(name);
 
 // Offsets from the barre/nut for common shapes
 // -1 means mute, numbers are relative fret adds
@@ -105,6 +131,7 @@ export interface Voicing {
 export interface Chord {
   id: string; // Unique ID for key
   root: string;
+  rootPc: number; // pitch class of the root (0..11), spelling-independent
   quality: string; // 'm', 'maj', 'dim', '7'
   name: string;
   roman: string;
@@ -127,14 +154,26 @@ export const GUITAR_TUNING = [
   { note: 'E', octave: 4 },
 ];
 
-export const getNoteAtFret = (stringIdx: number, fret: number) => {
+// A fretted note as a pitch class + octave (scientific pitch notation).
+// Display spelling is applied separately, in key context.
+export const getNoteAtFret = (
+  stringIdx: number,
+  fret: number,
+): { pc: number; octave: number } | null => {
   if (fret === -1) return null;
   const openNote = GUITAR_TUNING[stringIdx];
-  const openNoteIdx = ALL_NOTES.indexOf(openNote.note);
-  const totalSemis = openNoteIdx + fret;
-  const noteName = ALL_NOTES[totalSemis % 12];
-  const octaveBoost = Math.floor(totalSemis / 12);
-  return { note: noteName, octave: openNote.octave + octaveBoost };
+  const totalSemis = pc(openNote.note) + fret;
+  return { pc: mod12(totalSemis), octave: openNote.octave + Math.floor(totalSemis / 12) };
+};
+
+// Spell a fretted pitch class for display, preferring a name already present
+// in the current scale, then the key's sharp/flat bias (inferred from the
+// tonic, i.e. scaleNotes[0]).
+export const spellNoteInKey = (pitchClass: number, scaleNotes: string[]): string => {
+  const match = scaleNotes.find(n => noteToPc(n) === pitchClass);
+  if (match) return match;
+  const flat = scaleNotes.length > 0 && isFlatKey(scaleNotes[0]);
+  return spellPlain(pitchClass, flat ? 'flat' : 'sharp');
 };
 
 // The lowest fretted (non-muted) fret of a voicing, used to position the
@@ -177,38 +216,42 @@ const getQualityFromIntervals = (third: number, fifth: number, seventh: number |
 
 // Generates chords for a specific key and style
 export const generateKeyChords = (root: string, scaleType: string, style: string): Chord[] => {
-  const rootIdx = ALL_NOTES.indexOf(root);
+  const rootPc = noteToPc(root);
   const pattern = SCALE_PATTERNS[scaleType];
-  const scaleNotes = pattern.map(interval => ALL_NOTES[(rootIdx + interval) % 12]);
+  const scaleNotes = spellScale(root, pattern);
+  const flat = isFlatKey(root);
+
+  // Spell a note `semitones` above `fromName` using a letter `letterSteps`
+  // scale-steps higher (e.g. a major third: 2 steps, 4 semitones).
+  const spelledInterval = (fromName: string, letterSteps: number, semitones: number): string => {
+    const startLetter = LETTERS.indexOf(fromName[0].toUpperCase() as Letter);
+    const letter = LETTERS[(startLetter + letterSteps) % 7];
+    const target = mod12(noteToPc(fromName) + semitones);
+    return spellWithLetter(target, letter) ?? spellPlain(target, flat ? 'flat' : 'sharp');
+  };
 
   const allChords: Chord[] = [];
 
   // 1. DIATONIC TEAM
   scaleNotes.forEach((note, i) => {
-    const chordRootVal = ALL_NOTES.indexOf(note);
+    const chordRootPc = noteToPc(note);
 
     let thirdNote = scaleNotes[(i + 2) % 7];
     let fifthNote = scaleNotes[(i + 4) % 7];
     let seventhNote = scaleNotes[(i + 6) % 7];
 
     let useSevenths = (style === 'Jazz' || style === 'Blues');
-    let isBluesDominant = false;
 
-    // Blues Override
+    // Blues Override: force a dominant 7th on I, IV, V.
     if (style === 'Blues' && (i === 0 || i === 3 || i === 4)) {
-       isBluesDominant = true;
-       thirdNote = ALL_NOTES[(chordRootVal + 4) % 12];
-       seventhNote = ALL_NOTES[(chordRootVal + 10) % 12];
+       thirdNote = spelledInterval(note, 2, 4);  // major 3rd
+       seventhNote = spelledInterval(note, 6, 10); // minor 7th
        useSevenths = true;
     }
 
-    const thirdVal = ALL_NOTES.indexOf(thirdNote);
-    const fifthVal = ALL_NOTES.indexOf(fifthNote);
-    const seventhVal = ALL_NOTES.indexOf(seventhNote);
-
-    const thirdInterval = (thirdVal - chordRootVal + 12) % 12;
-    const fifthInterval = (fifthVal - chordRootVal + 12) % 12;
-    const seventhInterval = (seventhVal - chordRootVal + 12) % 12;
+    const thirdInterval = mod12(noteToPc(thirdNote) - chordRootPc);
+    const fifthInterval = mod12(noteToPc(fifthNote) - chordRootPc);
+    const seventhInterval = mod12(noteToPc(seventhNote) - chordRootPc);
 
     let quality = getQualityFromIntervals(thirdInterval, fifthInterval, useSevenths ? seventhInterval : null);
 
@@ -243,10 +286,10 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
             else shapeKey = '';
         }
         const shapeTemplate = CHORD_SHAPES[shapeKey] || CHORD_SHAPES[''];
+        const nPc = noteToPc(n);
 
         // E-Shape
-        const eStringIdx = ALL_NOTES.indexOf('E');
-        const eShapeRootFret = (ALL_NOTES.indexOf(n) - eStringIdx + 12) % 12;
+        const eShapeRootFret = mod12(nPc - pc('E'));
         const eFrets = createVoicingFromShape(shapeTemplate.eShape, eShapeRootFret);
         const isEBarre = eFrets.some(fr => fr > 0) && eShapeRootFret > 0;
         voicings.push({
@@ -256,8 +299,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
         });
 
         // A-Shape
-        const aStringIdx = ALL_NOTES.indexOf('A');
-        const aShapeRootFret = (ALL_NOTES.indexOf(n) - aStringIdx + 12) % 12;
+        const aShapeRootFret = mod12(nPc - pc('A'));
         const aFrets = createVoicingFromShape(shapeTemplate.aShape, aShapeRootFret);
         const isABarre = aFrets.some(fr => fr > 0) && aShapeRootFret > 0;
         voicings.push({
@@ -270,9 +312,8 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
         // 1. First Inversion (Bass = 3rd)
         if (q === '' || q === 'm') {
             const isMinor = q === 'm';
-            // Find 3rd note fret on E string
             const thirdNoteName = thirdNote;
-            const thirdE_Fret = (ALL_NOTES.indexOf(thirdNoteName) - eStringIdx + 12) % 12;
+            const thirdE_Fret = mod12(noteToPc(thirdNoteName) - pc('E'));
             const shapeNameE = isMinor ? 'Min_3_E' : 'Maj_3_E';
             const invFretsE = createInversionVoicing(INVERSION_SHAPES[shapeNameE], thirdE_Fret);
             if (invFretsE) {
@@ -283,8 +324,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
                 });
             }
 
-            // Find 3rd note fret on A string
-            const thirdA_Fret = (ALL_NOTES.indexOf(thirdNoteName) - aStringIdx + 12) % 12;
+            const thirdA_Fret = mod12(noteToPc(thirdNoteName) - pc('A'));
             const shapeNameA = isMinor ? 'Min_3_A' : 'Maj_3_A';
             const invFretsA = createInversionVoicing(INVERSION_SHAPES[shapeNameA], thirdA_Fret);
             if (invFretsA) {
@@ -299,7 +339,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
         // 2. Second Inversion (Bass = 5th)
         if (q === '') {
              const fifthNoteName = fifthNote;
-             const fifthE_Fret = (ALL_NOTES.indexOf(fifthNoteName) - eStringIdx + 12) % 12;
+             const fifthE_Fret = mod12(noteToPc(fifthNoteName) - pc('E'));
              const invFrets5 = createInversionVoicing(INVERSION_SHAPES['Maj_5_E'], fifthE_Fret);
              if (invFrets5) {
                 voicings.push({
@@ -310,12 +350,12 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
              }
         }
 
-        // Calculate notes for playback
         const cNotes = [n, thirdNote, fifthNote];
 
         return {
             id: `${n}${q}-${i}-${customId}`,
             root: n,
+            rootPc: nPc,
             quality: q,
             name: `${n}${q}`,
             roman: r,
@@ -331,10 +371,7 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
 
     allChords.push(buildChord(quality, note, roman, func, 'Team'));
 
-    // 2. VARIATIONS (Spices)
-    // Only generate variations for major/minor chords to keep it musical
-
-    // Sus4 & Sus2
+    // 2. VARIATIONS (Spices) — only for major/minor chords, to stay musical.
     if (quality === '' || quality === '7') { // Major Triad or Dom7
         allChords.push(buildChord('sus4', note, roman + 'sus4', 'Spice', 'Variation', 'sus4'));
         allChords.push(buildChord('sus2', note, roman + 'sus2', 'Spice', 'Variation', 'sus2'));
@@ -353,19 +390,18 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
 
   // 3. WILDCARDS (Happy Accidents / Borrowed Chords)
   const addWildcard = (degreeOffset: number, quality: string, roman: string, label: string) => {
-     const wIdx = (rootIdx + degreeOffset) % 12;
-     const wNote = ALL_NOTES[wIdx];
+     const wPc = mod12(rootPc + degreeOffset);
+     const degree = degreeOfRoman(roman) ?? 1;
+     const wNote = spellDegreeAtPc(root, degree, wPc);
 
-     // Build Voicing for Wildcard
-     const shapeKey = quality;
-     const template = CHORD_SHAPES[shapeKey] || CHORD_SHAPES[''];
-     const eStringIdx = ALL_NOTES.indexOf('E');
-     const wRootFret = (wIdx - eStringIdx + 12) % 12;
+     const template = CHORD_SHAPES[quality] || CHORD_SHAPES[''];
+     const wRootFret = mod12(wPc - pc('E'));
      const wFrets = createVoicingFromShape(template.eShape, wRootFret);
 
      allChords.push({
         id: `wild-${wNote}${quality}`,
         root: wNote,
+        rootPc: wPc,
         quality: quality,
         name: `${wNote}${quality}`,
         roman: roman,
@@ -380,14 +416,14 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
   };
 
   if (scaleType === 'Major' || scaleType === 'Mixolydian') {
-      addWildcard(10, '', 'bVII', 'Mixolydian Borrow'); // bVII Major
-      addWildcard(3, '', 'bIII', 'Chromatic Mediant'); // bIII Major
-      addWildcard(5, 'm', 'iv', 'Minor Plagal'); // iv Minor
-      addWildcard(8, '', 'bVI', 'Epic Lift'); // bVI Major
+      addWildcard(10, '', 'bVII', 'Mixolydian Borrow');
+      addWildcard(3, '', 'bIII', 'Chromatic Mediant');
+      addWildcard(5, 'm', 'iv', 'Minor Plagal');
+      addWildcard(8, '', 'bVI', 'Epic Lift');
   } else { // Minor Contexts
-      addWildcard(7, '', 'V', 'Major V (Harmonic)'); // V Major
-      addWildcard(5, '', 'IV', 'Dorian IV'); // IV Major
-      addWildcard(1, '', 'bII', 'Neapolitan'); // bII Major
+      addWildcard(7, '', 'V', 'Major V (Harmonic)');
+      addWildcard(5, '', 'IV', 'Dorian IV');
+      addWildcard(1, '', 'bII', 'Neapolitan');
   }
 
   return allChords;

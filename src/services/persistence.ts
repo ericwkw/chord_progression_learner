@@ -4,7 +4,9 @@
 
 import type { Chord } from '../engine/theory';
 
-const PROGRESSION_KEY = 'chordlab:progression:v1';
+// v2: chord ids / roots switched to key-aware enharmonic spelling, so v1
+// descriptors no longer resolve against the palette.
+const PROGRESSION_KEY = 'chordlab:progression:v2';
 const GUIDE_KEY = 'chordlab:seenGuide:v1';
 
 export interface SavedChord {

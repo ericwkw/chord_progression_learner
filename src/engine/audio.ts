@@ -7,16 +7,13 @@ const getAudioContextClass = (): typeof AudioContext | undefined =>
     : (window.AudioContext || (window as any).webkitAudioContext);
 let audioCtx: AudioContext | null = null;
 
-export const NOTE_FREQUENCIES: Record<string, number> = {
-  'C': 16.35, 'C#': 17.32, 'Db': 17.32, 'D': 18.35, 'D#': 19.45, 'Eb': 19.45,
-  'E': 20.60, 'F': 21.83, 'F#': 23.12, 'Gb': 23.12, 'G': 24.50, 'G#': 25.96,
-  'Ab': 25.96, 'A': 27.50, 'A#': 29.14, 'Bb': 29.14, 'B': 30.87
-};
+// Equal temperament from C0 ≈ 16.351 Hz. `pc` is a pitch class (0 = C .. 11 = B);
+// `octave` follows scientific pitch notation (C4 = middle C, octave = 4).
+export const C0_HZ = 16.351597831287414;
 
-export const getFrequency = (note: string, octave: number) => {
-  const base = NOTE_FREQUENCIES[note];
-  if (!base) return 0;
-  return base * Math.pow(2, octave);
+export const getFrequency = (pc: number, octave: number): number => {
+  if (!Number.isFinite(pc)) return 0;
+  return C0_HZ * Math.pow(2, pc / 12 + octave);
 };
 
 export const initAudio = () => {
@@ -30,14 +27,14 @@ export const initAudio = () => {
     }
 };
 
-export const strumChord = (notes: { note: string, octave: number }[]) => {
+export const strumChord = (notes: { pc: number, octave: number }[]) => {
   initAudio();
   if (!audioCtx) return;
 
   const now = audioCtx.currentTime;
   notes.forEach((n, i) => {
-    const freq = getFrequency(n.note, n.octave);
-    if (!freq) return; // unknown / unresolvable note — skip the dead oscillator
+    const freq = getFrequency(n.pc, n.octave);
+    if (!freq) return; // unresolvable pitch — skip the dead oscillator
 
     const osc = audioCtx!.createOscillator();
     const gain = audioCtx!.createGain();
