@@ -92,6 +92,56 @@ describe('generateKeyChords — jazz sevenths', () => {
   });
 });
 
+describe('generateKeyChords — augmented & diminished chords', () => {
+  it('C Harmonic Minor / Pop: III is augmented, vii is diminished', () => {
+    const t = team(generateKeyChords('C', 'Harmonic Minor', 'Pop'));
+    expect(t[2].quality).toBe('aug');
+    expect(t[2].name).toBe('Ebaug');
+    expect(t[2].roman).toBe('III+');
+    expect(t[6].quality).toBe('dim');
+    expect(t[6].roman).toBe('vii°');
+  });
+
+  it('C Harmonic Minor / Jazz: full 7th harmonization', () => {
+    const q = team(generateKeyChords('C', 'Harmonic Minor', 'Jazz')).map(c => c.quality);
+    expect(q).toEqual(['mMaj7', 'm7b5', 'maj7#5', 'm7', '7', 'maj7', 'dim7']);
+  });
+
+  it('C Harmonic Minor / Jazz: III is spelled and labelled as augmented-major 7th', () => {
+    const three = team(generateKeyChords('C', 'Harmonic Minor', 'Jazz'))[2];
+    expect(three.name).toBe('Ebmaj7#5');
+    expect(three.roman).toBe('III+Maj7');
+  });
+
+  it('C Melodic Minor / Pop: III is augmented', () => {
+    expect(team(generateKeyChords('C', 'Melodic Minor (Jazz)', 'Pop'))[2].quality).toBe('aug');
+  });
+
+  it('augmented voicings actually voice an augmented triad (root, +4, +8)', () => {
+    // Eb aug = Eb G B. Check the primary voicing's fretted pitch classes.
+    for (const scale of ['Harmonic Minor', 'Melodic Minor (Jazz)']) {
+      const three = team(generateKeyChords('C', scale, 'Pop'))[2];
+      const openStrings = [4, 9, 2, 7, 11, 4]; // E A D G B E
+      const pcs = new Set(
+        three.voicings[0].frets
+          .map((f, s) => (f === -1 ? null : (openStrings[s] + f) % 12))
+          .filter((x): x is number => x !== null),
+      );
+      expect([...pcs].sort((a, b) => a - b), scale).toEqual([3, 7, 11]); // Eb G B
+    }
+  });
+
+  it('half-diminished keeps ø and never gains a °', () => {
+    const two = team(generateKeyChords('C', 'Harmonic Minor', 'Jazz'))[1];
+    expect(two.roman).toContain('ø');
+    expect(two.roman).not.toContain('°');
+  });
+
+  it('fully-diminished 7th roman is vii°7, not the old doubled "vii7°7"', () => {
+    expect(team(generateKeyChords('C', 'Harmonic Minor', 'Jazz'))[6].roman).toBe('vii°7');
+  });
+});
+
 describe('generateKeyChords — blues dominant cycle', () => {
   it('C Major / Blues → I IV V are dominant 7ths', () => {
     const t = team(generateKeyChords('C', 'Major', 'Blues'));

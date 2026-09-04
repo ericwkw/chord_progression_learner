@@ -64,6 +64,12 @@ const CHORD_SHAPES: Record<string, { eShape: number[], aShape: number[] }> = {
         eShape: [0, 1, 2, 0, -1, -1],
         aShape: [-1, 0, 1, 2, 1, -1]
     },
+    'aug': { // Augmented Triad
+        // Eaug: 0 3 2 1 1 0
+        eShape: [0, 3, 2, 1, 1, 0],
+        // Aaug: x 0 3 2 2 1
+        aShape: [-1, 0, 3, 2, 2, 1]
+    },
     // SUSPENDED & ADD
     'sus4': {
         // Esus4: 0 2 2 2 0 0
@@ -132,7 +138,7 @@ export interface Chord {
   id: string; // Unique ID for key
   root: string;
   rootPc: number; // pitch class of the root (0..11), spelling-independent
-  quality: string; // 'm', 'maj', 'dim', '7'
+  quality: string; // suffix: '' | 'm' | 'dim' | 'aug' | '7' | 'maj7' | 'm7' | 'm7b5' | 'dim7' | 'mMaj7' | 'maj7#5' | '7#5' | '7b5' | 'sus4' | ...
   name: string;
   roman: string;
   function: 'Home' | 'Adventure' | 'Tension' | 'Stranger' | 'Spice'; // Functional harmony role
@@ -198,19 +204,26 @@ const createInversionVoicing = (shape: number[], bassFret: number): number[] | n
     return null;
 };
 
+// `third`, `fifth`, `seventh` are semitone intervals above the chord root.
+// Returns a quality suffix ('' = major triad); the caller adds the roman
+// numeral decoration.
 const getQualityFromIntervals = (third: number, fifth: number, seventh: number | null): string => {
     if (seventh !== null) {
       if (third === 4 && fifth === 7 && seventh === 11) return 'maj7';
       if (third === 4 && fifth === 7 && seventh === 10) return '7'; // Dom7
       if (third === 3 && fifth === 7 && seventh === 10) return 'm7';
-      if (third === 3 && fifth === 7 && seventh === 11) return 'mMaj7'; // Jazz Minor I
-      if (third === 3 && fifth === 6 && seventh === 10) return 'm7b5'; // Half Dim
-      if (third === 3 && fifth === 6 && seventh === 9) return 'dim7'; // Full Dim
+      if (third === 3 && fifth === 7 && seventh === 11) return 'mMaj7'; // minor-major 7th (harmonic/melodic-minor I)
+      if (third === 3 && fifth === 6 && seventh === 10) return 'm7b5'; // half-diminished
+      if (third === 3 && fifth === 6 && seventh === 9) return 'dim7';  // fully diminished 7th
+      if (third === 4 && fifth === 8 && seventh === 11) return 'maj7#5'; // augmented-major 7th (harmonic/melodic-minor III)
+      if (third === 4 && fifth === 8 && seventh === 10) return '7#5';   // augmented dominant
+      if (third === 4 && fifth === 6 && seventh === 10) return '7b5';   // dominant flat-5
     }
-    // Fallback to Triads
+    // Triad fallback (also used when a stacked 7th matched nothing above).
     if (third === 4 && fifth === 7) return '';
     if (third === 3 && fifth === 7) return 'm';
     if (third === 3 && fifth === 6) return 'dim';
+    if (third === 4 && fifth === 8) return 'aug';
     return '';
 };
 
@@ -269,18 +282,26 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
 
     let roman = ROMAN_NUMERALS[i];
     if (thirdInterval === 4) roman = roman.toUpperCase();
-    if (quality.includes('7')) roman += '7';
-    if (quality === 'maj7') roman = roman.replace('7', 'Maj7');
-    if (quality === 'm7b5') roman += 'ø';
-    if (quality === 'dim7') roman += '°7';
-    if (quality === 'dim') roman += '°';
+    if (quality === 'maj7') roman += 'Maj7';
+    else if (quality === 'mMaj7') roman += 'Maj7'; // minor triad already lower-case
+    else if (quality === 'm7b5') roman += 'ø';
+    else if (quality === 'dim7') roman += '°7';
+    else if (quality === 'dim') roman += '°';
+    else if (quality === 'aug') roman += '+';
+    else if (quality === 'maj7#5') roman += '+Maj7';
+    else if (quality === '7#5') roman += '+7';
+    else if (quality === '7b5') roman += '7♭5';
+    else if (quality.includes('7')) roman += '7'; // m7, dom 7
 
     // Build Chord Object
     const buildChord = (q: string, n: string, r: string, f: Chord['function'], cat: Chord['category'], customId: string = '') => {
         const voicings: Voicing[] = [];
+        // Pick the closest playable shape for qualities without their own.
         let shapeKey = q;
         if (!CHORD_SHAPES[shapeKey]) {
-            if (q === 'mMaj7') shapeKey = 'm7';
+            if (q === 'maj7#5' || q === '7#5') shapeKey = 'aug';
+            else if (q === '7b5') shapeKey = '7';
+            else if (q === 'mMaj7') shapeKey = 'm7';
             else if (q.startsWith('m')) shapeKey = 'm';
             else if (q.startsWith('dim')) shapeKey = 'dim';
             else shapeKey = '';
