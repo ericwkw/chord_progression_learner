@@ -147,7 +147,9 @@ export interface Chord {
   activeVoicingIdx: number;
   scaleDegree: number;
   isDiatonic: boolean;
-  category: 'Team' | 'Variation' | 'Wildcard';
+  category: 'Team' | 'Variation' | 'Wildcard' | 'Secondary';
+  /** For a secondary dominant: the diatonic roman it resolves to (e.g. "ii"). */
+  resolvesTo?: string;
 }
 
 // Guitar tuning: E2, A2, D3, G3, B3, E4
@@ -244,6 +246,10 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
   };
 
   const allChords: Chord[] = [];
+  // Per-degree triad quality ('' | 'm' | 'dim' | 'aug') and plain roman,
+  // captured for the secondary-dominant pass below.
+  const triadQuality: string[] = [];
+  const baseRoman: string[] = [];
 
   // 1. DIATONIC TEAM
   scaleNotes.forEach((note, i) => {
@@ -267,6 +273,9 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
     const seventhInterval = mod12(noteToPc(seventhNote) - chordRootPc);
 
     let quality = getQualityFromIntervals(thirdInterval, fifthInterval, useSevenths ? seventhInterval : null);
+
+    triadQuality[i] = getQualityFromIntervals(thirdInterval, fifthInterval, null);
+    baseRoman[i] = thirdInterval === 4 ? ROMAN_NUMERALS[i].toUpperCase() : ROMAN_NUMERALS[i];
 
     // Determine Function
     let func: Chord['function'] = 'Adventure';
@@ -445,6 +454,50 @@ export const generateKeyChords = (root: string, scaleType: string, style: string
       addWildcard(7, '', 'V', 'Major V (Harmonic)');
       addWildcard(5, '', 'IV', 'Dorian IV');
       addWildcard(1, '', 'bII', 'Neapolitan');
+  }
+
+  // 4. SECONDARY DOMINANTS (Jazz) — a dominant 7th a fifth above each
+  // major/minor diatonic degree, tonicising it (V7/ii, V7/V, …). Skip the
+  // tonic (that is the primary V) and diminished/augmented degrees, which
+  // have no stable target.
+  if (style === 'Jazz') {
+    const shapeVoicing = (shape: number[], rootPitch: number, ref: string, label: string): Voicing => {
+      const rootFret = mod12(rootPitch - pc(ref));
+      const frets = createVoicingFromShape(shape, rootFret);
+      return { name: label, frets, baseFret: lowestFret(frets) };
+    };
+
+    scaleNotes.forEach((targetName, i) => {
+      if (i === 0) return;
+      if (triadQuality[i] !== '' && triadQuality[i] !== 'm') return;
+
+      const domName = spelledInterval(targetName, 4, 7); // perfect fifth above the target
+      const domPc = noteToPc(domName);
+      const third = spelledInterval(domName, 2, 4);
+      const fifth = spelledInterval(domName, 4, 7);
+      const seventh = spelledInterval(domName, 6, 10);
+      const dom = CHORD_SHAPES['7'];
+
+      allChords.push({
+        id: `sec-${domName}7-${baseRoman[i]}`,
+        root: domName,
+        rootPc: domPc,
+        quality: '7',
+        name: `${domName}7`,
+        roman: `V7/${baseRoman[i]}`,
+        function: 'Tension',
+        notes: [domName, third, fifth, seventh],
+        voicings: [
+          shapeVoicing(dom.eShape, domPc, 'E', `Root on E (Fret ${mod12(domPc - pc('E')) || 12})`),
+          shapeVoicing(dom.aShape, domPc, 'A', `Root on A (Fret ${mod12(domPc - pc('A')) || 12})`),
+        ],
+        activeVoicingIdx: 0,
+        scaleDegree: 0,
+        isDiatonic: false,
+        category: 'Secondary',
+        resolvesTo: baseRoman[i],
+      });
+    });
   }
 
   return allChords;

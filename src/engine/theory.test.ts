@@ -142,6 +142,43 @@ describe('generateKeyChords — augmented & diminished chords', () => {
   });
 });
 
+describe('generateKeyChords — secondary dominants', () => {
+  const secondary = (chords: Chord[]) => chords.filter(c => c.category === 'Secondary');
+
+  it('only appear in the Jazz style', () => {
+    expect(secondary(generateKeyChords('C', 'Major', 'Pop'))).toHaveLength(0);
+    expect(secondary(generateKeyChords('C', 'Major', 'Blues'))).toHaveLength(0);
+    expect(secondary(generateKeyChords('C', 'Major', 'Jazz')).length).toBeGreaterThan(0);
+  });
+
+  it('C major / Jazz → V7 of ii, iii, IV, V, vi (not I or vii°)', () => {
+    const s = secondary(generateKeyChords('C', 'Major', 'Jazz'));
+    expect(s.map(c => c.name)).toEqual(['A7', 'B7', 'C7', 'D7', 'E7']);
+    expect(s.map(c => c.roman)).toEqual(['V7/ii', 'V7/iii', 'V7/IV', 'V7/V', 'V7/vi']);
+    expect(s.every(c => c.quality === '7' && c.function === 'Tension')).toBe(true);
+  });
+
+  it('each secondary dominant is a dominant-7 chord a fifth above its target', () => {
+    const s = secondary(generateKeyChords('C', 'Major', 'Jazz'));
+    const vOfV = s.find(c => c.roman === 'V7/V')!;
+    expect(vOfV.name).toBe('D7');            // a 5th above G
+    expect(vOfV.notes).toEqual(['D', 'F#', 'A', 'C']);
+    expect(vOfV.resolvesTo).toBe('V');
+  });
+
+  it('minor key / Jazz skips the tonic and the diminished ii°', () => {
+    const s = secondary(generateKeyChords('A', 'Natural Minor', 'Jazz'));
+    expect(s.map(c => c.roman)).toEqual(['V7/III', 'V7/iv', 'V7/v', 'V7/VI', 'V7/VII']);
+  });
+
+  it('secondary-dominant voicings are playable 6-string shapes', () => {
+    for (const c of secondary(generateKeyChords('Eb', 'Major', 'Jazz'))) {
+      expect(c.voicings[0].frets).toHaveLength(6);
+      expect(c.voicings[0].frets.every(f => f >= -1 && f <= 17)).toBe(true);
+    }
+  });
+});
+
 describe('generateKeyChords — blues dominant cycle', () => {
   it('C Major / Blues → I IV V are dominant 7ths', () => {
     const t = team(generateKeyChords('C', 'Major', 'Blues'));

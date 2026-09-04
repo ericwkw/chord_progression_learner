@@ -111,6 +111,21 @@ describe('App — smoke', () => {
 
     expect(label()).not.toEqual(first);
   });
+
+  it('shows a Secondary Dominants section only in the Jazz style', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await dismissGuide(user);
+
+    expect(screen.queryByRole('heading', { name: /secondary dominants/i })).not.toBeInTheDocument();
+
+    const styleBtns = screen.getAllByRole('button');
+    await user.click(styleBtns.find(b => b.textContent === 'Jazz')!);
+
+    const heading = await screen.findByRole('heading', { name: /secondary dominants/i });
+    const section = heading.parentElement as HTMLElement;
+    expect(within(section).getByRole('button', { name: 'D7 V7/V' })).toBeInTheDocument();
+  });
 });
 
 describe('App — persistence', () => {

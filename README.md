@@ -14,7 +14,7 @@ The app does not use hardcoded databases. Instead, it calculates chords in real-
 *   **84+ Keys**: Supports 12 roots across 7 modes (Major, Minor, Dorian, Mixolydian, etc.).
 *   **Style-Aware Logic**:
     *   **Pop/Folk**: Prioritizes Triads, Sus2, Sus4, and Add9 chords.
-    *   **Jazz**: Automatically harmonizes scales into 7th chords (Maj7, m7, m7b5) and generates secondary dominants.
+    *   **Jazz**: Harmonizes the scale into 7th chords (Maj7, m7, m7b5, dim7, aug-Maj7…) and generates the secondary dominants (V7/ii, V7/V, …) that tonicise each diatonic chord.
     *   **Blues**: Enforces Dominant 7th cycles (I7, IV7, V7).
 
 ### 2. **Dynamic Fretboard Visualization**
